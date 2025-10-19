@@ -70,13 +70,15 @@ export default function OnboardingPage() {
         const errorMsg = errorData.details || errorData.error || 'Failed to generate diet plan';
         setErrorDetails(errorMsg);
         
-        // Check for specific error types
-        if (errorMsg.includes('API key')) {
-          throw new Error('OpenAI API configuration error. Please check your API key in the .env.local file.');
-        } else if (errorMsg.includes('quota')) {
-          throw new Error('OpenAI API quota exceeded. Please check your OpenAI account billing.');
-        } else if (errorMsg.includes('MongoDB')) {
+        // Check for specific error types - FIXED: Changed OpenAI to Gemini
+        if (errorMsg.includes('API key') || errorMsg.includes('GEMINI_API_KEY')) {
+          throw new Error('Gemini API key is missing or invalid. Please add a valid GEMINI_API_KEY to your .env.local file. Get a free key from https://aistudio.google.com/app/apikey');
+        } else if (errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+          throw new Error('Gemini API quota exceeded. Please wait a moment and try again.');
+        } else if (errorMsg.includes('MongoDB') || errorMsg.includes('database')) {
           throw new Error('Database connection error. Please check your MongoDB connection.');
+        } else if (errorMsg.includes('model') || errorMsg.includes('not found')) {
+          throw new Error('Gemini model not available. Please verify your API key has access to Gemini models.');
         } else {
           throw new Error(errorMsg);
         }
@@ -114,6 +116,14 @@ export default function OnboardingPage() {
             <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-left">
               <p className="text-sm text-red-800 font-medium mb-1">Error Details:</p>
               <p className="text-xs text-red-600">{errorDetails}</p>
+              <div className="mt-3 text-xs text-red-700">
+                <p className="font-medium">Need help?</p>
+                <ul className="mt-1 space-y-1 list-disc list-inside">
+                  <li>Get a free Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a></li>
+                  <li>Add it to your .env.local file as: GEMINI_API_KEY=your_key_here</li>
+                  <li>Restart your development server</li>
+                </ul>
+              </div>
             </div>
           )}
         </div>

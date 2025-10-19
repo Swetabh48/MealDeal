@@ -56,12 +56,12 @@ Respond as Dr. HealthAI to the last user message. Keep your response warm, helpf
 
     console.log('🩺 Calling Gemini for doctor chat...');
 
-    // Try different models
+    // Try different models with correct naming
     const modelsToTry = [
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro'
-    ];
+  'gemini-2.5-flash',          // Latest model for fast, capable tasks
+  'gemini-2.5-pro',            // Latest model for complex reasoning
+  'gemini-pro',                // General-purpose stable model
+];
 
     let response;
     let lastError;
@@ -78,12 +78,19 @@ Respond as Dr. HealthAI to the last user message. Keep your response warm, helpf
         break;
       } catch (error: any) {
         lastError = error;
-        console.log(`❌ Model ${modelName} failed, trying next...`);
+        console.log(`❌ Model ${modelName} failed: ${error.message}`);
+        
+        // If it's a safety error, return appropriate message
+        if (error.message?.includes('SAFETY') || error.message?.includes('block')) {
+          return 'I understand your concern. For this specific medical question, I recommend consulting with your healthcare provider in person for personalized advice.';
+        }
+        
         continue;
       }
     }
 
     if (!response) {
+      console.error('❌ All models failed. Last error:', lastError);
       throw lastError || new Error('No available models');
     }
 
@@ -91,9 +98,9 @@ Respond as Dr. HealthAI to the last user message. Keep your response warm, helpf
   } catch (error: any) {
     console.error('❌ Error in doctor chat:', error);
     
-    if (error.message?.includes('API key')) {
+    if (error.message?.includes('API key') || error.message?.includes('API_KEY_INVALID')) {
       throw new Error('Invalid Gemini API key. Please check your configuration.');
-    } else if (error.message?.includes('SAFETY')) {
+    } else if (error.message?.includes('SAFETY') || error.message?.includes('block')) {
       return 'I understand your concern. For this specific medical question, I recommend consulting with your healthcare provider in person for personalized advice.';
     }
     
