@@ -6,7 +6,7 @@ import { Providers } from '@/components/providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'HealthyLife - Your Personal Nutrition Guide',
+  title: 'MealDeal - Your Personal Nutrition Guide',
   description: 'AI-powered personalized nutrition and health planning',
 };
 
