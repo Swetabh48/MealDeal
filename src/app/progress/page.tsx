@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Dashboard from '@/components/dashboard';
+import ProgressPage from '@/components/progress';
 
-export default function DashboardPage() {
+export default function Progress() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -26,5 +26,5 @@ export default function DashboardPage() {
     );
   }
 
-  return <Dashboard />;
+  return <ProgressPage />;
 }

@@ -64,15 +64,16 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
               "carbs": number,
               "fats": number,
               "estimatedCost": number (in INR or local currency),
-              "recipe": "detailed recipe with preparation instructions",
-              "benefits": "health benefits of this food"
+              "brand": "specific brand or store name (e.g., 'Aashirvaad Atta', 'Local Market', 'Amul Butter')",
+              "recipe": "detailed recipe with preparation instructions in points in simple language",
+              "benefits":  "health benefits and why this is good for their condition"
             }
           ],
           "totalCalories": number,
           "totalProtein": number,
           "totalCarbs": number,
           "totalFats": number,
-          "totalCost": number
+          "totalCost": number(in INR or local currency)
         }
       ],
       "dailyTotal": {
@@ -80,7 +81,7 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
         "protein": number,
         "carbs": number,
         "fats": number,
-        "cost": number
+        "cost": number(in INR or local currency)
       }
     },
     // Repeat for tuesday, wednesday, thursday, friday, saturday, sunday
@@ -99,26 +100,31 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
     }
   ],
   "hydration": "detailed water intake recommendation with timing",
-  "exerciseRecommendations": "brief exercise suggestions aligned with their activity level and goals",
+  "exerciseRecommendations": "brief exercise suggestions aligned with their age and conditions",
   "progressTracking": "what metrics to track and how often",
-  "cautionaryNotes": "any medical cautions or when to consult a doctor"
+  "cautionaryNotes": "Important medical cautions specific to their conditions or when to consult a doctor"
 }
 
 **Important Guidelines:**
-1. Create 7 DIFFERENT daily plans to provide variety throughout the week
-2. Use foods that are locally available and affordable in ${userProfile.location.city || userProfile.location.country}
-3. Consider the ${userProfile.budget} class budget - be realistic with costs
-4. Address their specific goals, challenges, and expectations mentioned above
-5. Ensure the plan is medically sound and safe given their medical conditions
-6. Include proper macro and micronutrient balance
-7. Make it practical and easy to follow for a ${userProfile.age}-year-old
-8. Include 5 meals per day: Breakfast, Mid-Morning Snack, Lunch, Evening Snack, Dinner
-9. Provide exact quantities, measurements, and nutritional information
-10. Include detailed recipes that are simple to prepare
-11. Consider cultural and regional food preferences for ${userProfile.location.country}
-12. If they have dietary restrictions, strictly adhere to them
-13. For medical conditions, provide medically appropriate food choices
-14. Include meal timing that supports their goal and activity level
+1. Create 7 DIFFERENT daily plans to provide variety throughout the week and keep on rotating every week
+2. STRICTLY AVOID all foods that worsen their medical conditions
+3. Use foods that are locally available and affordable in ${userProfile.location.city || userProfile.location.country}
+4. Include specific brand names and alternatives (e.g., "Fortune Rice Bran Oil", "Britannia Brown Bread", "Local vegetable vendor")
+5. Consider the ${userProfile.budget} class budget - be realistic with costs and use only INR or local currency 
+6. Address their specific goals, challenges, and expectations mentioned above
+7. Ensure the plan is medically sound and safe given their medical conditions
+8. Include proper macro and micronutrient balance
+9. Make it practical and easy to follow for a ${userProfile.age}-year-old
+10. Include 5 meals per day: Breakfast, Mid-Morning Snack, Lunch, Evening Snack, Dinner
+11. Provide exact quantities, measurements, and nutritional information
+12. Include detailed recipes that are simple to prepare
+13. Consider cultural and regional food preferences for ${userProfile.location.country}
+14. If they have dietary restrictions, strictly adhere to them
+15. For medical conditions, provide medically appropriate food choices and justifications
+16. Include meal timing that supports their goal and activity level
+17. Include alternative options if the primary food might cause issues
+18. The price can be estimated based on local market rates and need not be exact
+
 
 Return ONLY the JSON object, no additional text.
 `;
