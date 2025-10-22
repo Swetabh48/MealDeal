@@ -190,12 +190,12 @@ Return ONLY the JSON object, no additional text.
     console.log('API Key present:', !!process.env.GEMINI_API_KEY);
     console.log('API Key length:', process.env.GEMINI_API_KEY?.length);
 
-     // Try different models with correct naming
     const modelsToTry = [
-  'gemini-2.5-flash',          // Latest model for fast, capable tasks
-  'gemini-2.5-pro',            // Latest model for complex reasoning
-  'gemini-pro',                // General-purpose stable model
-];
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro'
+    ];
 
     let result;
     let lastError;
