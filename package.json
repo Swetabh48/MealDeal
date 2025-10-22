@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "SKIP_ENV_VALIDATION=1 next build --no-lint --no-type-check",
+    "build": "NEXT_IGNORE_TYPE_CHECK=true next build",
     "start": "next start",
     "lint": "eslint"
   },
