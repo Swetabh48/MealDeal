@@ -11,7 +11,8 @@ import {
   Apple, Calendar, MessageCircle, 
   ChevronRight, Activity, Droplets,
   Heart, Clock, ChefHat, Check, Menu,
-  Home, TrendingUp, BookOpen, User, X, LogOut
+  Home, TrendingUp, BookOpen, User, X, LogOut,
+  Sparkles, RefreshCw
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -22,6 +23,22 @@ interface MealLog {
   carbs: number;
   fats: number;
   timestamp: Date;
+  isCustom?: boolean;
+}
+
+interface CustomMeal {
+  _id: string;
+  date: string;
+  mealType: string;
+  mealName: string;
+  totalCalories: number;
+  nutritionAnalysis: {
+    totalProtein: number;
+    totalCarbs: number;
+    totalFats: number;
+    totalCalories: number;
+  };
+  createdAt: string;
 }
 
 interface DietPlan {
@@ -49,10 +66,11 @@ export default function Dashboard() {
   const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentDay, setCurrentDay] = useState('');
   const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
+  const [customMeals, setCustomMeals] = useState<CustomMeal[]>([]);
   const [waterGlasses, setWaterGlasses] = useState(0);
-  const [showChatBot, setShowChatBot] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [loggedMealNames, setLoggedMealNames] = useState<string[]>([]);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
@@ -66,6 +84,13 @@ export default function Dashboard() {
 
     fetchData();
     loadTodayLogs();
+    
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchCustomMeals();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchData = async () => {
@@ -84,11 +109,36 @@ export default function Dashboard() {
         const profileData = await profileRes.json();
         setUserProfile(profileData.user);
       }
+      
+      await fetchCustomMeals();
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCustomMeals = async () => {
+    try {
+      const res = await fetch('/api/meals/custom');
+      if (res.ok) {
+        const data = await res.json();
+        const today = new Date().toDateString();
+        const todayCustomMeals = data.customMeals.filter((meal: CustomMeal) => 
+          new Date(meal.date).toDateString() === today
+        );
+        setCustomMeals(todayCustomMeals);
+      }
+    } catch (error) {
+      console.error('Error fetching custom meals:', error);
+    }
+  };
+
+  const refreshData = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchData(), fetchCustomMeals()]);
+    loadTodayLogs();
+    setRefreshing(false);
   };
 
   const loadTodayLogs = () => {
@@ -139,11 +189,20 @@ export default function Dashboard() {
       protein: Math.round(totalNutrition.protein * 10) / 10,
       carbs: Math.round(totalNutrition.carbs * 10) / 10,
       fats: Math.round(totalNutrition.fats * 10) / 10,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isCustom: false
     };
 
-    saveLogs([...mealLogs, newLog]);
-    saveLoggedMealNames([...loggedMealNames, meal.name]);
+    const updatedLogs = [...mealLogs, newLog];
+    const updatedLoggedNames = [...loggedMealNames, meal.name];
+    
+    saveLogs(updatedLogs);
+    saveLoggedMealNames(updatedLoggedNames);
+    
+    // Force immediate state update
+    setMealLogs(updatedLogs);
+    setLoggedMealNames(updatedLoggedNames);
+    
     setShowAdjustmentModal(false);
     setFoodAdjustments({});
   };
@@ -177,12 +236,27 @@ export default function Dashboard() {
   };
 
   const getConsumedNutrition = () => {
-    return mealLogs.reduce((acc, log) => ({
+    // Combine both planned meals and custom meals
+    const plannedMealsNutrition = mealLogs.reduce((acc, log) => ({
       calories: acc.calories + log.calories,
       protein: acc.protein + log.protein,
       carbs: acc.carbs + log.carbs,
       fats: acc.fats + log.fats
     }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+
+    const customMealsNutrition = customMeals.reduce((acc, meal) => ({
+      calories: acc.calories + meal.nutritionAnalysis.totalCalories,
+      protein: acc.protein + meal.nutritionAnalysis.totalProtein,
+      carbs: acc.carbs + meal.nutritionAnalysis.totalCarbs,
+      fats: acc.fats + meal.nutritionAnalysis.totalFats
+    }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+
+    return {
+      calories: Math.round(plannedMealsNutrition.calories + customMealsNutrition.calories),
+      protein: Math.round((plannedMealsNutrition.protein + customMealsNutrition.protein) * 10) / 10,
+      carbs: Math.round((plannedMealsNutrition.carbs + customMealsNutrition.carbs) * 10) / 10,
+      fats: Math.round((plannedMealsNutrition.fats + customMealsNutrition.fats) * 10) / 10
+    };
   };
 
   const getTodaysMeals = () => {
@@ -192,21 +266,48 @@ export default function Dashboard() {
 
   const getCurrentMeal = () => {
     const meals = getTodaysMeals();
-    const currentHour = new Date().getHours();
+    if (!meals || meals.length === 0) return null;
     
-    if (currentHour < 9) return meals[0];
-    if (currentHour < 11) return meals[1];
-    if (currentHour < 15) return meals[2];
-    if (currentHour < 18) return meals[3];
-    return meals[4];
+    // Find first unlogged meal
+    for (const meal of meals) {
+      if (!loggedMealNames.includes(meal.name)) {
+        return meal;
+      }
+    }
+    
+    return null; // All meals logged
+  };
+
+  const getAllLoggedMeals = () => {
+    // Combine planned meals and custom meals
+    const plannedMeals = mealLogs.map(log => ({
+      ...log,
+      isCustom: false,
+      displayName: log.mealName
+    }));
+
+    const customMealsList = customMeals.map(meal => ({
+      mealName: meal.mealName,
+      calories: meal.nutritionAnalysis.totalCalories,
+      protein: meal.nutritionAnalysis.totalProtein,
+      carbs: meal.nutritionAnalysis.totalCarbs,
+      fats: meal.nutritionAnalysis.totalFats,
+      timestamp: new Date(meal.createdAt),
+      isCustom: true,
+      displayName: `${meal.mealName} (Custom)`
+    }));
+
+    return [...plannedMeals, ...customMealsList].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading...</p>
+          <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -241,6 +342,7 @@ export default function Dashboard() {
 
   const currentMeal = getCurrentMeal();
   const consumed = getConsumedNutrition();
+  const allLoggedMeals = getAllLoggedMeals();
   const caloriesPercent = dietPlan.dailyCalories ? (consumed.calories / dietPlan.dailyCalories) * 100 : 0;
   const proteinPercent = dietPlan.dailyProtein ? (consumed.protein / dietPlan.dailyProtein) * 100 : 0;
   const carbsPercent = dietPlan.dailyCarbs ? (consumed.carbs / dietPlan.dailyCarbs) * 100 : 0;
@@ -340,13 +442,25 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Welcome Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">
-            Welcome back, {userProfile?.name || 'Friend'}! 👋
-          </h1>
-          <p className="text-gray-600">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">
+              Welcome back, {userProfile?.name || 'Friend'}! 👋
+            </h1>
+            <p className="text-gray-600">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+          <Button
+            onClick={refreshData}
+            disabled={refreshing}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -418,7 +532,7 @@ export default function Dashboard() {
             </Card>
 
             {/* Current Meal - Priority #2 */}
-            {currentMeal && !loggedMealNames.includes(currentMeal.name) && (
+            {currentMeal ? (
               <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -471,29 +585,60 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+            ) : (
+              <Card className="border-0 shadow-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                <CardContent className="p-8 text-center">
+                  <div className="bg-white/20 backdrop-blur-sm w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">All Meals Logged! 🎉</h3>
+                  <p className="text-green-100 mb-4">
+                    Great job completing all your meals for today!
+                  </p>
+                  <Link href="/meal-plan">
+                    <Button className="bg-white text-green-600 hover:bg-green-50">
+                      View Tomorrow&apos;s Plan
+                      <ChevronRight className="ml-2 w-4 h-4" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             )}
 
             {/* Today's Meals Log */}
-            {mealLogs.length > 0 && (
+            {allLoggedMeals.length > 0 && (
               <Card className="border-0 shadow-lg">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-bold">Meals Eaten Today</CardTitle>
+                  <CardTitle className="text-lg font-bold flex items-center justify-between">
+                    <span>Meals Eaten Today</span>
+                    <Badge variant="secondary">{allLoggedMeals.length} meals</Badge>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {mealLogs.map((log, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                    {allLoggedMeals.map((log, idx) => (
+                      <div key={idx} className={`flex items-center justify-between p-3 rounded-lg border ${
+                        log.isCustom 
+                          ? 'bg-purple-50 border-purple-200' 
+                          : 'bg-green-50 border-green-200'
+                      }`}>
                         <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-green-600" />
+                          {log.isCustom ? (
+                            <Sparkles className="w-4 h-4 text-purple-600" />
+                          ) : (
+                            <Check className="w-4 h-4 text-green-600" />
+                          )}
                           <div>
-                            <p className="font-semibold text-sm text-gray-900">{log.mealName}</p>
+                            <p className="font-semibold text-sm text-gray-900">{log.displayName || log.mealName}</p>
                             <p className="text-xs text-gray-600">
                               {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-sm text-green-600">{log.calories}</p>
+                          <p className={`font-bold text-sm ${log.isCustom ? 'text-purple-600' : 'text-green-600'}`}>
+                            {log.calories}
+                          </p>
                           <p className="text-xs text-gray-600">{log.protein}p • {log.carbs}c</p>
                         </div>
                       </div>
@@ -559,6 +704,33 @@ export default function Dashboard() {
                   <Button variant="ghost" className="w-full mt-3 text-sm hover:bg-blue-50">
                     View All Tips
                     <ChevronRight className="ml-1 w-4 h-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Link href="/meal-plan">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Log Custom Meal
+                  </Button>
+                </Link>
+                <Link href="/progress">
+                  <Button variant="outline" className="w-full justify-start">
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Update Weight
+                  </Button>
+                </Link>
+                <Link href="/doctor-chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Ask AI Doctor
                   </Button>
                 </Link>
               </CardContent>

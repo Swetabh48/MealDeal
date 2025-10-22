@@ -108,7 +108,7 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
 **Important Guidelines:**
 1. Create 7 DIFFERENT daily plans to provide variety throughout the week and keep on rotating every week
 2. STRICTLY AVOID all foods that worsen their medical conditions
-3. Use foods that are locally available and affordable in ${userProfile.location.city || userProfile.location.country}
+3. Use foods that are locally available and affordable in ${userProfile.location.city && userProfile.location.country}
 4. Include specific brand names and alternatives (e.g., "Fortune Rice Bran Oil", "Britannia Brown Bread", "Local vegetable vendor")
 5. Consider the ${userProfile.budget} class budget - be realistic with costs and use only INR or local currency 
 6. Address their specific goals, challenges, and expectations mentioned above
@@ -123,7 +123,7 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
 15. For medical conditions, provide medically appropriate food choices and justifications
 16. Include meal timing that supports their goal and activity level
 17. Include alternative options if the primary food might cause issues
-18. The price can be estimated based on local market rates and need not be exact
+18. The price can be estimated based on local market rates and need not be exact and displayed in terms of kg or per piece as relevant
 
 
 Return ONLY the JSON object, no additional text.
