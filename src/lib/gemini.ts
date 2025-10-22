@@ -1,17 +1,27 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Verify API key exists
-if (!process.env.GEMINI_API_KEY) {
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+if (!GEMINI_API_KEY) {
   console.error('❌ GEMINI_API_KEY is not set in environment variables');
+  console.error('❌ Please add GEMINI_API_KEY to your Vercel environment variables');
+  console.error('❌ Get your key from: https://aistudio.google.com/app/apikey');
+} else {
+  console.log('✅ GEMINI_API_KEY is configured');
+  console.log('✅ Key length:', GEMINI_API_KEY.length);
+  console.log('✅ Key starts with:', GEMINI_API_KEY.substring(0, 10) + '...');
 }
 
-// Initialize Gemini AI with base URL that uses v1 API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || 'dummy-key-for-build');
 
-// Get the model - these are the correct model names for Gemini API
-export function getGeminiModel(modelName: string = 'gemini-2.5-flash') {
-  // The SDK automatically uses the correct API version
-  // Just make sure to use the correct model names
+// Get the model with validation
+export function getGeminiModel(modelName: string = 'gemini-1.5-flash') {
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'dummy-key-for-build') {
+    throw new Error('Gemini API key is not configured. Please add GEMINI_API_KEY to your environment variables.');
+  }
+  
   return genAI.getGenerativeModel({ model: modelName });
 }
 
