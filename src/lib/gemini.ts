@@ -17,7 +17,7 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || 'dummy-key-for-build');
 
 // Get the model with validation
-export function getGeminiModel(modelName: string = 'gemini-1.5-flash') {
+export function getGeminiModel(modelName: string = 'gemini-2.5-flash') {
   if (!GEMINI_API_KEY || GEMINI_API_KEY === 'dummy-key-for-build') {
     throw new Error('Gemini API key is not configured. Please add GEMINI_API_KEY to your environment variables.');
   }
