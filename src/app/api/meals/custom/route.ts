@@ -1,7 +1,7 @@
 // src/app/api/meals/custom/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import CustomMeal from '@/models/CustomMeal';
 import { getGeminiModel } from '@/lib/gemini';
