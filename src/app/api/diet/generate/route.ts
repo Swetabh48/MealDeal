@@ -46,11 +46,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get additional context from request body if provided
+    // Get additional context from request body
     const body = await req.json().catch(() => ({}));
-    const { goalDescription, challenges, expectations } = body;
+    const { goalDescription, challenges, expectations, livesInHostel, messMenuText } = body;
 
     console.log('🤖 Generating AI diet plan...');
+    if (livesInHostel) {
+      console.log('🏠 Generating hostel-friendly plan...');
+      if (messMenuText) {
+        console.log('📋 Using provided mess menu');
+      }
+    }
     
     // Generate diet plan using AI with comprehensive user data
     const dietData = await generateDietPlan({
@@ -68,7 +74,9 @@ export async function POST(req: NextRequest) {
         goalDescription: goalDescription || user.additionalInfo?.goalDescription || '',
         challenges: challenges || user.additionalInfo?.challenges || '',
         expectations: expectations || user.additionalInfo?.expectations || '',
-      }
+      },
+      livesInHostel: livesInHostel || user.additionalInfo?.livesInHostel || false,
+      messMenuText: messMenuText || user.additionalInfo?.messMenuText || '',
     });
 
     console.log('✅ Diet plan generated successfully');
@@ -97,7 +105,6 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('❌ Diet plan generation error:', error);
     
-    // Provide detailed error information
     const errorMessage = error.message || 'Unknown error occurred';
     const errorDetails = {
       message: errorMessage,

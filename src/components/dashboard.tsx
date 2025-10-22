@@ -76,22 +76,24 @@ export default function Dashboard() {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [adjustingMeal, setAdjustingMeal] = useState<any>(null);
   const [foodAdjustments, setFoodAdjustments] = useState<Record<number, string>>({});
+  const userId = session?.user?.id || '';
 
-  useEffect(() => {
-    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const today = days[new Date().getDay()];
-    setCurrentDay(today);
+ useEffect(() => {
+  if (!userId) return;
+  
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const today = days[new Date().getDay()];
+  setCurrentDay(today);
 
-    fetchData();
-    loadTodayLogs();
-    
-    // Set up auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      fetchCustomMeals();
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+  fetchData();
+  loadTodayLogs();
+  
+  const interval = setInterval(() => {
+    fetchCustomMeals();
+  }, 30000);
+  
+  return () => clearInterval(interval);
+}, [userId]);
 
   const fetchData = async () => {
     try {
@@ -142,32 +144,37 @@ export default function Dashboard() {
   };
 
   const loadTodayLogs = () => {
-    const today = new Date().toDateString();
-    const stored = localStorage.getItem(`meal_logs_${today}`);
-    const waterStored = localStorage.getItem(`water_${today}`);
-    const loggedNames = localStorage.getItem(`logged_meals_${today}`);
-    if (stored) setMealLogs(JSON.parse(stored));
-    if (waterStored) setWaterGlasses(parseInt(waterStored));
-    if (loggedNames) setLoggedMealNames(JSON.parse(loggedNames));
-  };
+  if (!userId) return;
+  const today = new Date().toDateString();
+  const stored = localStorage.getItem(`meal_logs_${userId}_${today}`);
+  const waterStored = localStorage.getItem(`water_${userId}_${today}`);
+  const loggedNames = localStorage.getItem(`logged_meals_${userId}_${today}`);
+  if (stored) setMealLogs(JSON.parse(stored));
+  if (waterStored) setWaterGlasses(parseInt(waterStored));
+  if (loggedNames) setLoggedMealNames(JSON.parse(loggedNames));
+};
 
   const saveLogs = (logs: MealLog[]) => {
-    const today = new Date().toDateString();
-    localStorage.setItem(`meal_logs_${today}`, JSON.stringify(logs));
-    setMealLogs(logs);
-  };
+  if (!userId) return;
+  const today = new Date().toDateString();
+  localStorage.setItem(`meal_logs_${userId}_${today}`, JSON.stringify(logs));
+  setMealLogs(logs);
+};
 
   const saveLoggedMealNames = (names: string[]) => {
-    const today = new Date().toDateString();
-    localStorage.setItem(`logged_meals_${today}`, JSON.stringify(names));
-    setLoggedMealNames(names);
-  };
+  if (!userId) return;
+  const today = new Date().toDateString();
+  localStorage.setItem(`logged_meals_${userId}_${today}`, JSON.stringify(names));
+  setLoggedMealNames(names);
+};
+
 
   const saveWater = (count: number) => {
-    const today = new Date().toDateString();
-    localStorage.setItem(`water_${today}`, count.toString());
-    setWaterGlasses(count);
-  };
+  if (!userId) return;
+  const today = new Date().toDateString();
+  localStorage.setItem(`water_${userId}_${today}`, count.toString());
+  setWaterGlasses(count);
+};
 
   const logMeal = (meal: any) => {
     const totalNutrition = meal.foods.reduce((acc: any, food: any, idx: number) => {
@@ -235,29 +242,29 @@ export default function Dashboard() {
     return currentTimeInMinutes >= mealTimeInMinutes;
   };
 
-  const getConsumedNutrition = () => {
-    // Combine both planned meals and custom meals
-    const plannedMealsNutrition = mealLogs.reduce((acc, log) => ({
-      calories: acc.calories + log.calories,
-      protein: acc.protein + log.protein,
-      carbs: acc.carbs + log.carbs,
-      fats: acc.fats + log.fats
-    }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+ const getConsumedNutrition = () => {
+  const plannedMealsNutrition = mealLogs.reduce((acc, log) => ({
+    calories: acc.calories + (Number(log.calories) || 0),
+    protein: acc.protein + (Number(log.protein) || 0),
+    carbs: acc.carbs + (Number(log.carbs) || 0),
+    fats: acc.fats + (Number(log.fats) || 0)
+  }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
 
-    const customMealsNutrition = customMeals.reduce((acc, meal) => ({
-      calories: acc.calories + meal.nutritionAnalysis.totalCalories,
-      protein: acc.protein + meal.nutritionAnalysis.totalProtein,
-      carbs: acc.carbs + meal.nutritionAnalysis.totalCarbs,
-      fats: acc.fats + meal.nutritionAnalysis.totalFats
-    }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+  const customMealsNutrition = customMeals.reduce((acc, meal) => ({
+    calories: acc.calories + (Number(meal.nutritionAnalysis?.totalCalories) || 0),
+    protein: acc.protein + (Number(meal.nutritionAnalysis?.totalProtein) || 0),
+    carbs: acc.carbs + (Number(meal.nutritionAnalysis?.totalCarbs) || 0),
+    fats: acc.fats + (Number(meal.nutritionAnalysis?.totalFats) || 0)
+  }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
 
-    return {
-      calories: Math.round(plannedMealsNutrition.calories + customMealsNutrition.calories),
-      protein: Math.round((plannedMealsNutrition.protein + customMealsNutrition.protein) * 10) / 10,
-      carbs: Math.round((plannedMealsNutrition.carbs + customMealsNutrition.carbs) * 10) / 10,
-      fats: Math.round((plannedMealsNutrition.fats + customMealsNutrition.fats) * 10) / 10
-    };
+  return {
+    calories: Math.round(plannedMealsNutrition.calories + customMealsNutrition.calories),
+    protein: Math.round((plannedMealsNutrition.protein + customMealsNutrition.protein) * 10) / 10,
+    carbs: Math.round((plannedMealsNutrition.carbs + customMealsNutrition.carbs) * 10) / 10,
+    fats: Math.round((plannedMealsNutrition.fats + customMealsNutrition.fats) * 10) / 10
   };
+};
+
 
   const getTodaysMeals = () => {
     if (!dietPlan || !currentDay) return [];

@@ -22,6 +22,8 @@ export interface IUser extends Document {
     goalDescription?: string;
     challenges?: string;
     expectations?: string;
+    livesInHostel?: boolean;
+    messMenuText?: string;
   };
   medicalReports?: {
     fileName: string;
@@ -76,6 +78,8 @@ const UserSchema: Schema = new Schema(
       goalDescription: { type: String },
       challenges: { type: String },
       expectations: { type: String },
+      livesInHostel: { type: Boolean, default: false },
+      messMenuText: { type: String },
     },
     medicalReports: [{
       fileName: { type: String },

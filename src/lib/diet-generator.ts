@@ -20,9 +20,38 @@ interface UserProfile {
     challenges?: string;
     expectations?: string;
   };
+  livesInHostel?: boolean;
+  messMenuText?: string;
 }
 
 export async function generateDietPlan(userProfile: UserProfile) {
+  const hostelContext = userProfile.livesInHostel && userProfile.messMenuText
+    ? `
+**IMPORTANT: USER LIVES IN HOSTEL**
+The user lives in a hostel with mess facility. Here is their mess menu:
+
+${userProfile.messMenuText}
+
+YOU MUST:
+1. Create meal plans NOT NECESSARILY BUT MOSTLY using ONLY the foods available in the mess menu above
+2. Match the meal timings to the mess schedule shown in the menu
+3. If the mess menu shows different meals for different days, ensure your weekly plan reflects this variety
+4. Do NOT suggest outside foods or restaurants unless the food in the menu is grossly insufficient to meet their nutritional needs
+5. Work within the mess meal structure (breakfast, lunch, dinner as available)
+6. Suggest combinations and portions from mess items to meet nutritional goals
+7. If mess food is insufficient for their goals, you may suggest minimal supplementary foods that are easy to keep in hostel (fruits, nuts, protein powder, etc.)
+
+The meal plan must be practical and based on what's actually available in their hostel mess.
+`
+    : userProfile.livesInHostel
+    ? `
+**IMPORTANT: USER LIVES IN HOSTEL**
+The user lives in a hostel with mess facility but hasn't provided a menu. 
+- Create a realistic hostel mess-style meal plan with common hostel foods
+- Keep meals simple and mess-friendly
+- Suggest easy-to-store supplementary items if needed
+`
+    : '';
   const prompt = `
 You are a certified nutritionist and medical doctor. Create a detailed, science-based, doctor-approved weekly diet plan for the following person:
 
@@ -42,6 +71,9 @@ You are a certified nutritionist and medical doctor. Create a detailed, science-
 ${userProfile.additionalInfo?.goalDescription ? `**User's Goal Description:** ${userProfile.additionalInfo.goalDescription}` : ''}
 ${userProfile.additionalInfo?.challenges ? `**Challenges Faced:** ${userProfile.additionalInfo.challenges}` : ''}
 ${userProfile.additionalInfo?.expectations ? `**User's Expectations:** ${userProfile.additionalInfo.expectations}` : ''}
+
+${hostelContext}
+
 
 Please provide a comprehensive 7-day rotating diet plan in the following JSON format:
 {
@@ -64,8 +96,8 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
               "carbs": number,
               "fats": number,
               "estimatedCost": number (in INR or local currency),
-              "brand": "specific brand or store name (e.g., 'Aashirvaad Atta', 'Local Market', 'Amul Butter')",
-              "recipe": "detailed recipe with preparation instructions in points in simple language",
+              "brand": "specific brand or store name (e.g., 'Aashirvaad Atta', 'Local Market', 'Amul Butter'), or 'Hostel Mess' if from mess",
+              "recipe": "detailed recipe with preparation instructions in points in simple language, or 'Available in mess' if from mess menu",
               "benefits":  "health benefits and why this is good for their condition"
             }
           ],
@@ -87,8 +119,8 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
     // Repeat for tuesday, wednesday, thursday, friday, saturday, sunday
   },
   "recommendations": [
-    "recommendation 1 - specific and actionable",
-    "recommendation 2 - specific and actionable",
+    "Recommendation 1: [Title] - [Specific actionable advice]",
+    "Recommendation 2: [Title] - [Specific actionable advice]",
     ...
   ],
   "supplements": [
@@ -108,13 +140,19 @@ Please provide a comprehensive 7-day rotating diet plan in the following JSON fo
 **Important Guidelines:**
 1. Create 7 DIFFERENT daily plans to provide variety throughout the week and keep on rotating every week
 2. STRICTLY AVOID all foods that worsen their medical conditions
-3. Use foods that are locally available and affordable in ${userProfile.location.city && userProfile.location.country}
-4. Include specific brand names and alternatives (e.g., "Fortune Rice Bran Oil", "Britannia Brown Bread", "Local vegetable vendor")
+3.${userProfile.livesInHostel 
+  ? 'Strictly use only mess menu items for main meals' 
+  : `Use foods that are locally available and affordable in ${
+      userProfile.location?.city && userProfile.location?.country 
+        ? `${userProfile.location.city}, ${userProfile.location.country}`
+        : 'your area'
+    }`}
+4. ${userProfile.livesInHostel ? 'If mess food lacks nutrition, suggest easy hostel-friendly supplements (fruits, nuts, protein powder)' : 'Include specific brand names and alternatives(e.g., "Fortune Rice Bran Oil", "Britannia Brown Bread", "Local vegetable vendor")'} 
 5. Consider the ${userProfile.budget} class budget - be realistic with costs and use only INR or local currency 
 6. Address their specific goals, challenges, and expectations mentioned above
 7. Ensure the plan is medically sound and safe given their medical conditions
 8. Include proper macro and micronutrient balance
-9. Make it practical and easy to follow for a ${userProfile.age}-year-old
+9. Make it practical and easy to follow for a ${userProfile.age}-year-old ${userProfile.livesInHostel ? 'hostel resident' : 'person'}
 10. Include 5 meals per day: Breakfast, Mid-Morning Snack, Lunch, Evening Snack, Dinner
 11. Provide exact quantities, measurements, and nutritional information
 12. Include detailed recipes that are simple to prepare

@@ -91,10 +91,10 @@ export default function Home() {
       rating: 5
     },
     {
-      name: 'Anil Patel',
-      age: '58 years',
-      result: 'Better energy & fitness',
-      quote: 'The interface is so simple, even I can use it! The AI doctor is like having a nutritionist available 24/7.',
+      name:'Vivek Mishra',
+      age: '21 years',
+      result: 'Gained muscle mass',
+      quote: 'As a college student on a budget, MealDeal helped me eat healthy without overspending. The meal plans are easy to follow and delicious!',
       rating: 5
     }
   ];
@@ -295,7 +295,7 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
               <Heart className="w-8 h-8 text-rose-500" />
-              <span className="text-2xl font-bold">HealthyLife</span>
+              <span className="text-2xl font-bold">MealDeal</span>
             </div>
             <div className="flex gap-8 text-gray-400">
               <a href="#" className="hover:text-white transition-colors">Privacy</a>
@@ -304,7 +304,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-8 text-center text-gray-400">
-            <p>© 2025 HealthyLife. Built with ❤️ for better health</p>
+            <p>© 2025 Salampuria. Built with ❤️ for better health</p>
           </div>
         </div>
       </footer>

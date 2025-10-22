@@ -583,15 +583,39 @@ export default function RecommendationsPage() {
 const parseExerciseText = (text: string) => {
   if (!text) return [];
 
-  // Remove markdown-style asterisks or bullet symbols
-  const cleaned = text.replace(/\*\*/g, '').trim();
+  // 1) Basic cleanup
+  let cleaned = text.replace(/\*\*/g, '').trim();
 
-  // Split by newlines or bullet points (•, -, *, numbers)
-  const lines = cleaned
+  // 2) Normalize common bullet characters to a simple hyphen
+  cleaned = cleaned.replace(/•|\u2022|·/g, '-');
+
+  // 3) Remove stray newlines so we can re-insert controlled splits
+  cleaned = cleaned.replace(/[\r\n]+/g, ' ');
+
+  // 4) Insert a newline before numbered list markers like "1.", "1)", "1:"
+  //    This helps splitting when the server returns "1. A... 2. B... 3. C..."
+  cleaned = cleaned.replace(/(\d+[\)\.\:])\s+/g, '\n$1 ');
+
+  // 5) Also insert newline before hyphen bullets like " - " or at start "- "
+  cleaned = cleaned.replace(/\s-\s+/g, '\n- ');
+
+  // 6) Split on the newlines we just inserted
+  let parts = cleaned
     .split(/\n+/)
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
-    .map(line => line.replace(/^[\d\-\*•\.]+\s*/, '')); // Remove list markers like "1. ", "- ", "• "
+    .map(p => p.trim())
+    .filter(Boolean)
+    // remove leading numbering / bullet markers (e.g. "1. ", "1) ", "- ")
+    .map(p => p.replace(/^[\-\d\)\.\:]+\s*/, '').trim());
 
-  return lines;
+  // 7) If we still have a single long paragraph, attempt to split by sentence boundaries
+  //    This is a fallback for inputs that are plain text sentences.
+  if (parts.length === 1) {
+    const maybeSentences = parts[0]
+      .split(/(?<=\.)\s+(?=[A-Z0-9])/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (maybeSentences.length > 1) parts = maybeSentences;
+  }
+
+  return parts;
 };
