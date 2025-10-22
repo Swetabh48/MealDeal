@@ -17,12 +17,12 @@ export async function POST(req: NextRequest) {
     console.log('📸 Extracting text from mess menu image...');
     console.log('Image MIME type:', mimeType);
 
-    // Updated model names to match Gemini's current API
+     // Try different Gemini models with correct naming
     const modelsToTry = [
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro',
-    ];
+  'gemini-2.5-flash',          // Latest model for fast, capable tasks
+  'gemini-2.5-pro',            // Latest model for complex reasoning
+  'gemini-pro',                // General-purpose stable model
+];
     
     let extractedText = '';
     let lastError;
@@ -39,7 +39,7 @@ You are analyzing a hostel mess menu. Please extract ALL text from this image wi
 2. **All food items** listed for each meal
 3. **Day-wise variations** if the menu shows different meals for different days
 4. **Any special notes** or meal descriptions
-5. **Language if not english** - extract and translate to English
+5. **Language if not english- extract and translate to English**
 
 Format the output clearly as:
 
