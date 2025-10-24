@@ -13,6 +13,7 @@ import {
   AlertCircle, FileText, ArrowRight, ArrowLeft, Sparkles,
   Upload, Home, X
 } from 'lucide-react';
+import WorkoutPreferencesStep from '@/components/workout-preferences-step';
 
 interface FormData {
   age: string;
@@ -37,6 +38,12 @@ interface FormData {
   expectations: string;
   livesInHostel: boolean;
   messMenu: File | null;
+    gymTiming: string;
+  workoutDays: number;
+  preferredType: 'gym' | 'home' | 'both';
+  availableEquipment: string[];
+  experience: 'beginner' | 'intermediate' | 'advanced';
+  focusAreas: string[];
 }
 
 interface OnboardingFlowProps {
@@ -68,9 +75,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     expectations: '',
     livesInHostel: false,
     messMenu: null,
+      gymTiming: '',
+    workoutDays: 5,
+    preferredType: 'both',
+    availableEquipment: [],
+    experience: 'beginner',
+    focusAreas: [],
   });
 
-  const totalSteps = 6;
+  const totalSteps = 7;
   const progress = (step / totalSteps) * 100;
 
   const updateFormData = (field: string, value: any) => {
@@ -665,7 +678,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
           </div>
         );
-
+        case 7:
+      return (
+        <WorkoutPreferencesStep
+          formData={formData}
+          updateFormData={updateFormData}
+        />
+      );
       default:
         return null;
     }
@@ -685,6 +704,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         return true;
       case 6:
         return formData.location.country && formData.budget;
+      case 7:
+      return formData.gymTiming && formData.preferredType && formData.experience;
       default:
         return false;
     }

@@ -106,6 +106,14 @@ export default function OnboardingPage() {
             expectations: formData.expectations,
             livesInHostel: livesInHostel,
             messMenuText: messMenuText,
+          },
+          workoutPreferences: {
+            gymTiming: formData.gymTiming || '',
+            workoutDays: formData.workoutDays || 5,
+            preferredType: formData.preferredType || 'both',
+            availableEquipment: formData.availableEquipment || [],
+            experience: formData.experience || 'beginner',
+            focusAreas: formData.focusAreas || []
           }
         }),
       });
@@ -154,6 +162,36 @@ export default function OnboardingPage() {
       }
 
       console.log('✅ Diet plan generated successfully');
+      if (formData.gymTiming || formData.preferredType) {
+  console.log('🏋️ Generating workout plan...');
+  toast.loading('Creating your workout routine...', { id: 'workout-gen' });
+  
+  try {
+    const workoutResponse = await fetch('/api/workout/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gymTiming: formData.gymTiming,
+        workoutDays: formData.workoutDays || 5,
+        preferredType: formData.preferredType || 'both',
+        availableEquipment: formData.availableEquipment || [],
+        experience: formData.experience || 'beginner',
+        focusAreas: formData.focusAreas || []
+      }),
+    });
+
+    if (workoutResponse.ok) {
+      console.log('✅ Workout plan generated successfully');
+      toast.success('Workout plan ready!', { id: 'workout-gen' });
+    } else {
+      console.warn('⚠️ Workout plan generation failed, but continuing...');
+      toast.warning('Workout plan will be generated later', { id: 'workout-gen' });
+    }
+  } catch (workoutError) {
+    console.error('Workout generation error:', workoutError);
+    toast.warning('Workout plan will be generated later', { id: 'workout-gen' });
+  }
+}
       toast.success('Your personalized nutrition plan is ready! 🎉');
       router.push('/dashboard');
       router.refresh();

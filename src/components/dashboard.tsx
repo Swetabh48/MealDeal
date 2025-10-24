@@ -12,7 +12,8 @@ import {
   ChevronRight, Activity, Droplets,
   Heart, Clock, ChefHat, Check, Menu,
   Home, TrendingUp, BookOpen, User, X, LogOut,
-  Sparkles, RefreshCw
+  Sparkles, RefreshCw,
+  Dumbbell
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -377,6 +378,10 @@ export default function Dashboard() {
               <Link href="/meal-plan" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
                 <Calendar className="w-5 h-5" />
                 Meal Plan
+              </Link>
+              <Link href="/workout" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+                  <Dumbbell className="w-4 h-4 mr-2" />
+                  My Workouts
               </Link>
               <Link href="/progress" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
                 <TrendingUp className="w-5 h-5" />

@@ -3,6 +3,64 @@ import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 
+// List of valid email domains
+const VALID_EMAIL_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'outlook.com',
+  'hotmail.com',
+  'icloud.com',
+  'protonmail.com',
+  'zoho.com',
+  'aol.com',
+  'mail.com',
+];
+
+// Email validation function
+function isValidEmail(email: string): { valid: boolean; message?: string } {
+  // Basic format check
+  const emailRegex = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, message: 'Invalid email format' };
+  }
+
+  // Extract domain
+  const domain = email.split('@')[1].toLowerCase();
+  
+  // Check if domain is in valid list
+  if (!VALID_EMAIL_DOMAINS.includes(domain)) {
+    // Check if it's at least a valid-looking domain (has proper TLD)
+    const domainParts = domain.split('.');
+    if (domainParts.length < 2 || domainParts[domainParts.length - 1].length < 2) {
+      return { 
+        valid: false, 
+        message: 'Please use a valid email address from a recognized email provider (e.g., Gmail, Yahoo, Outlook)' 
+      };
+    }
+  }
+
+  // Check for suspicious patterns
+  const suspiciousPatterns = [
+    /^[0-9]+@/,  // Starts with only numbers
+    /@test\./,   // Test domains
+    /@demo\./,   // Demo domains
+    /@example\./, // Example domains
+    /@fake\./,   // Fake domains
+    /@temp\./,   // Temporary domains
+  ];
+
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(email.toLowerCase())) {
+      return { 
+        valid: false, 
+        message: 'Please use a valid personal email address' 
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -16,11 +74,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Enhanced email validation
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
       return NextResponse.json(
-        { error: 'Invalid email format' },
+        { error: emailValidation.message },
+        { status: 400 }
+      );
+    }
+
+    // Name validation
+    if (name.trim().length < 2) {
+      return NextResponse.json(
+        { error: 'Name must be at least 2 characters long' },
         { status: 400 }
       );
     }
@@ -33,13 +99,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check password complexity
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return NextResponse.json(
+        { error: 'Password must contain uppercase, lowercase, and numbers' },
+        { status: 400 }
+      );
+    }
+
     await connectDB();
 
     // Check if user exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User already exists with this email' },
+        { error: 'An account with this email already exists' },
         { status: 400 }
       );
     }
@@ -69,6 +147,14 @@ export async function POST(req: NextRequest) {
     if (error.name === 'ValidationError') {
       return NextResponse.json(
         { error: 'Invalid data provided' },
+        { status: 400 }
+      );
+    }
+
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: 'An account with this email already exists' },
         { status: 400 }
       );
     }

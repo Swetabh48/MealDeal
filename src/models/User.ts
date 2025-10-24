@@ -6,8 +6,8 @@ export interface IUser extends Document {
   password: string;
   age?: number;
   gender?: 'male' | 'female' | 'other';
-  height?: number; // in cm
-  weight?: number; // in kg
+  height?: number;
+  weight?: number;
   activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   goal?: 'weight_loss' | 'weight_gain' | 'muscle_gain' | 'maintenance';
   dietaryRestrictions?: string[];
@@ -25,6 +25,14 @@ export interface IUser extends Document {
     livesInHostel?: boolean;
     messMenuText?: string;
   };
+  workoutPreferences?: {
+    gymTiming?: string;
+    workoutDays?: number;
+    preferredType?: 'gym' | 'home' | 'both';
+    availableEquipment?: string[];
+    experience?: 'beginner' | 'intermediate' | 'advanced';
+    focusAreas?: string[];
+  };
   medicalReports?: {
     fileName: string;
     fileUrl: string;
@@ -32,6 +40,7 @@ export interface IUser extends Document {
     type: string;
   }[];
   onboardingCompleted?: boolean;
+  workoutPlanGenerated?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,6 +90,22 @@ const UserSchema: Schema = new Schema(
       livesInHostel: { type: Boolean, default: false },
       messMenuText: { type: String },
     },
+    workoutPreferences: {
+      gymTiming: { type: String },
+      workoutDays: { type: Number, min: 0, max: 7 },
+      preferredType: { 
+        type: String, 
+        enum: ['gym', 'home', 'both'],
+        default: 'both'
+      },
+      availableEquipment: [{ type: String }],
+      experience: {
+        type: String,
+        enum: ['beginner', 'intermediate', 'advanced'],
+        default: 'beginner'
+      },
+      focusAreas: [{ type: String }]
+    },
     medicalReports: [{
       fileName: { type: String },
       fileUrl: { type: String },
@@ -91,6 +116,10 @@ const UserSchema: Schema = new Schema(
       type: Boolean, 
       default: false 
     },
+    workoutPlanGenerated: {
+      type: Boolean,
+      default: false
+    }
   },
   {
     timestamps: true,

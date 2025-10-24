@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { User, Mail, Lock, ArrowLeft, Heart, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
+
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
