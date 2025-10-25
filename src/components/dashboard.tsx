@@ -427,6 +427,10 @@ export default function Dashboard() {
                   <Calendar className="w-5 h-5" />
                   Meal Plan
                 </Link>
+                <Link href="/workout" className="flex items-center gap-2 text-gray-600">
+                  <Dumbbell className="w-5 h-5" />
+                  My Workouts
+              </Link>
                 <Link href="/progress" className="flex items-center gap-2 text-gray-600 py-2">
                   <TrendingUp className="w-5 h-5" />
                   Progress
@@ -649,9 +653,10 @@ export default function Dashboard() {
                         </div>
                         <div className="text-right">
                           <p className={`font-bold text-sm ${log.isCustom ? 'text-purple-600' : 'text-green-600'}`}>
-                            {log.calories}
+                            {Number.isFinite(log.calories) ? log.calories : 0}
                           </p>
-                          <p className="text-xs text-gray-600">{log.protein}p • {log.carbs}c</p>
+                          <p className="text-xs text-gray-600">{Number.isFinite(log.protein) ? log.protein : 0}p • {Number.isFinite(log.carbs) ? log.carbs : 0}c
+</p>
                         </div>
                       </div>
                     ))}
@@ -773,9 +778,10 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="space-y-4">
                 {adjustingMeal.foods.map((food: any, idx: number) => {
-                  const consumed = parseFloat(foodAdjustments[idx] || '0');
-                  const original = parseFloat(food.quantity.match(/\d+/)?.[0] || '1');
-                  const ratio = consumed / original;
+                const consumed = parseFloat(foodAdjustments[idx] || '0');
+                const original = parseFloat(food.quantity.match(/\d+/)?.[0] || '1');
+                const ratio = !isNaN(consumed / original) && original > 0 ? consumed / original : 0;
+
                   
                   return (
                     <div key={idx} className="border rounded-lg p-4 bg-gradient-to-br from-gray-50 to-blue-50">
@@ -812,19 +818,19 @@ export default function Dashboard() {
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div>
                               <p className="text-sm font-bold text-blue-600">
-                                {Math.round(food.calories * ratio)} cal
+                                {Math.round(food.calories * ratio) || 0} cal
                               </p>
                               <p className="text-xs text-gray-500">Calories</p>
                             </div>
                             <div>
                               <p className="text-sm font-bold text-green-600">
-                                {Math.round(food.protein * ratio * 10) / 10}g
+                                {(Math.round(food.protein * ratio * 10) / 10 || 0).toString()}g
                               </p>
                               <p className="text-xs text-gray-500">Protein</p>
                             </div>
                             <div>
                               <p className="text-sm font-bold text-orange-600">
-                                {Math.round(food.carbs * ratio * 10) / 10}g
+                                {(Math.round(food.carbs * ratio * 10) / 10 || 0).toString()}g
                               </p>
                               <p className="text-xs text-gray-500">Carbs</p>
                             </div>

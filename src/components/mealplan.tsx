@@ -212,9 +212,11 @@ export default function MealPlanPage() {
                 <Plus className="w-4 h-4 mr-2" />
                 Log Custom Meal
               </Button>
-              <Link href="/dashboard">
-                <Button variant="outline">Dashboard</Button>
-              </Link>
+            <Link href="/dashboard">
+              <button className="px-4 py-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-full text-sm font-medium hover:shadow-lg transition-all">
+                Dashboard
+              </button>
+            </Link>
             </div>
           </div>
         </div>

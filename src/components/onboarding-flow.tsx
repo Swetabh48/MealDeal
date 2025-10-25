@@ -14,6 +14,7 @@ import {
   Upload, Home, X
 } from 'lucide-react';
 import WorkoutPreferencesStep from '@/components/workout-preferences-step';
+import { toast } from 'sonner';
 
 interface FormData {
   age: string;
@@ -152,13 +153,32 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <Input
                   id="age"
                   type="number"
+                  min="1"
+                  max="100"
                   value={formData.age}
-                  onChange={(e) => updateFormData('age', e.target.value)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (val > 100) {
+                      updateFormData('age', '100');
+                      toast.error('Age cannot exceed 100 years');
+                    } else if (val < 1) {
+                      updateFormData('age', '1');
+                    } else {
+                      updateFormData('age', e.target.value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (val > 100 || val < 1) {
+                      toast.warning('Please enter a valid age between 1-100');
+                    }
+                  }}
                   placeholder="e.g., 45"
                   className="h-12 text-base dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   required
                 />
               </div>
+
 
               <div>
                 <Label className="text-base font-medium mb-2 block dark:text-gray-200">
@@ -180,15 +200,31 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <Label htmlFor="height" className="text-base font-medium mb-2 block dark:text-gray-200">
                   Height (cm) <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="height"
-                  type="number"
-                  value={formData.height}
-                  onChange={(e) => updateFormData('height', e.target.value)}
-                  placeholder="e.g., 170"
-                  className="h-12 text-base dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  required
-                />
+                  <Input
+                    id="height"
+                    type="number"
+                    min="100"
+                    max="250"
+                    value={formData.height}
+                    onChange={(e) => {
+                        updateFormData('height', e.target.value);
+                    }}
+                    onBlur={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (isNaN(val)) return;
+
+                      if (val > 250) {
+                        updateFormData('height', '250');
+                        toast.error('Height cannot exceed 250 cm');
+                      } else if (val < 100) {
+                        updateFormData('height', '100');
+                        toast.error('Height cannot be less than 100 cm');
+                      }
+                    }}
+                    placeholder="e.g., 170"
+                    className="h-12 text-base dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                    required
+                  />
               </div>
 
               <div>
@@ -198,8 +234,25 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <Input
                   id="weight"
                   type="number"
+                  min="20"
+                  max="150"
+                  step="0.1"
                   value={formData.weight}
-                  onChange={(e) => updateFormData('weight', e.target.value)}
+                  onChange={(e) => {
+                      updateFormData('weight', e.target.value);
+                  }}
+                  onBlur={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (isNaN(val)) return;
+
+                    if (val > 150) {
+                      updateFormData('weight', '150');
+                      toast.error('Weight cannot exceed 150 kg');
+                    } else if (val < 20) {
+                      updateFormData('weight', '20');
+                      toast.error('Weight cannot be less than 20 kg');
+                    }
+                  }}
                   placeholder="e.g., 75"
                   className="h-12 text-base dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   required

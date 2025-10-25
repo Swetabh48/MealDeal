@@ -1,3 +1,4 @@
+// src/lib/workout-generator.ts
 import { getGeminiModel } from './gemini';
 
 interface UserProfile {
@@ -12,6 +13,48 @@ interface UserProfile {
   workoutPreference?: 'gym' | 'home' | 'both';
   availableEquipment?: string[];
   experience?: 'beginner' | 'intermediate' | 'advanced';
+}
+
+// Helper function to parse caloriesBurn and ensure it's a number
+function parseCaloriesBurn(value: any): number {
+  if (typeof value === 'number') return Math.round(value);
+  if (typeof value === 'string') {
+    // If it's a range like "60-90", take the average
+    const match = value.match(/(\d+)\s*-\s*(\d+)/);
+    if (match) {
+      const min = parseInt(match[1]);
+      const max = parseInt(match[2]);
+      return Math.round((min + max) / 2);
+    }
+    // If it's just a number string
+    const num = parseInt(value);
+    return isNaN(num) ? 0 : num;
+  }
+  return 0;
+}
+
+// Helper function to clean and validate workout plan
+function cleanWorkoutPlan(plan: any): any {
+  if (!plan.weeklySchedule) return plan;
+
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  
+  days.forEach(day => {
+    if (plan.weeklySchedule[day] && plan.weeklySchedule[day].exercises) {
+      plan.weeklySchedule[day].exercises = plan.weeklySchedule[day].exercises.map((ex: any) => ({
+        ...ex,
+        caloriesBurn: parseCaloriesBurn(ex.caloriesBurn)
+      }));
+      
+      // Recalculate total calories
+      plan.weeklySchedule[day].totalCaloriesBurn = plan.weeklySchedule[day].exercises.reduce(
+        (sum: number, ex: any) => sum + ex.caloriesBurn, 
+        0
+      );
+    }
+  });
+
+  return plan;
 }
 
 export async function generateWorkoutPlan(userProfile: UserProfile) {
@@ -30,7 +73,7 @@ You are a certified fitness trainer and physiotherapist. Create a detailed, safe
 - Workout Preference: ${userProfile.workoutPreference || 'Both gym and home'}
 - Experience Level: ${userProfile.experience || 'beginner'}
 
-**CRITICAL MEDICAL CONSIDERATIONS:**
+CRITICAL MEDICAL CONSIDERATIONS:
 ${userProfile.medicalConditions.length > 0 ? `
 This person has: ${userProfile.medicalConditions.join(', ')}
 YOU MUST:
@@ -42,13 +85,14 @@ YOU MUST:
 - ALWAYS prioritize safety over intensity
 ` : 'No medical conditions - can suggest full range of exercises'}
 
-**GYM TIMING CONTEXT:**
+**IMPORTANT: MEAL TIMING**
 ${userProfile.gymTiming ? `
 User works out at: ${userProfile.gymTiming}
-- Suggest pre-workout meal timing (30-60 mins before)
-- Suggest post-workout meal timing (within 30-60 mins after)
-- Adjust exercise intensity based on time of day
-` : ''}
+DO NOT suggest pre/post-workout meals in this workout plan.
+The user's diet plan will automatically include meals timed around their workout schedule.
+Simply note the workout timing so the diet plan generator can coordinate meal timing.
+` : 'Note: Meal timing will be coordinated with the user\'s diet plan'}
+
 
 Provide a comprehensive workout plan in JSON format:
 {
@@ -68,7 +112,7 @@ Provide a comprehensive workout plan in JSON format:
           "instructions": "Clear step-by-step instructions",
           "modifications": "Easier variation if needed",
           "equipment": "required equipment or 'bodyweight'",
-          "caloriesBurn": estimated_calories,
+          "caloriesBurn": 75 (MUST BE A SINGLE INTEGER NUMBER, NOT A RANGE),
           "benefits": "specific benefits for their condition/goal",
           "safetyTips": "Important safety considerations",
           "videoReference": "YouTube search term for proper form"
@@ -77,16 +121,6 @@ Provide a comprehensive workout plan in JSON format:
       "warmup": "5-10 minute warmup routine",
       "cooldown": "5-10 minute cooldown/stretching",
       "totalCaloriesBurn": number,
-      "preWorkoutMeal": {
-        "timing": "time before workout",
-        "foods": ["specific foods with brands if relevant"],
-        "reason": "why these foods"
-      },
-      "postWorkoutMeal": {
-        "timing": "time after workout",
-        "foods": ["specific foods with brands"],
-        "reason": "why these foods"
-      }
     }
     // Repeat for tuesday through sunday
   },
@@ -108,8 +142,10 @@ Provide a comprehensive workout plan in JSON format:
   "restAndRecovery": "Importance of rest, sleep recommendations, recovery tips"
 }
 
+**CRITICAL: caloriesBurn MUST be a single integer number (e.g., 75), NOT a range (e.g., "60-90"). Calculate the average if needed.**
+
 **IMPORTANT GUIDELINES:**
-1. Create 7 DIFFERENT daily workout plans for variety
+1. Create 7 DIFFERENT daily workout plans for variety based on the user's goal
 2. For medical conditions like sinus/asthma: 
    - Emphasize yoga (pranayama, gentle poses)
    - Breathing exercises (alternate nostril breathing, kapalbhati)
@@ -122,11 +158,14 @@ Provide a comprehensive workout plan in JSON format:
 7. Consider gym timing for meal suggestions
 8. Include rest days (at least 1-2 per week)
 9. For each exercise, specify sets, reps, and rest periods
-10. Include calorie burn estimates
+10. Include calorie burn estimates as INTEGER NUMBERS ONLY
 11. Provide safety tips and proper form cues
 12. Suggest equipment alternatives for home workouts
-13. If gym timing is early morning (before 7 AM): Suggest light pre-workout snacks
-14. If gym timing is evening: Suggest substantial pre-workout meals
+13. DO NOT include pre/post workout meal suggestions - meals are handled in the diet plan
+14. Focus purely on exercises, form, and safety
+15. The workout plan can be Arnold Schwarzenegger Routine or 5x5 (StrongLifts / Starting Strength) or any other relevant proven methodology based on user profile
+16. The workout plan can also be HIIT, Tabata, Circuit Training, Yoga, Pilates, Calisthenics, or any other relevant proven methodology based on user profile
+17. The workout plan can also be what many youtubers suggest like Athlean-X, FitnessBlender, MadFit, etc. based on user profile
 
 Return ONLY the JSON object, no additional text.
 `;
@@ -166,13 +205,17 @@ Return ONLY the JSON object, no additional text.
       cleanedResult = cleanedResult.replace(/^```\n?/, '').replace(/\n?```$/, '');
     }
 
-    const workoutPlan = JSON.parse(cleanedResult);
+    let workoutPlan = JSON.parse(cleanedResult);
+
+    // Clean and validate the plan
+    workoutPlan = cleanWorkoutPlan(workoutPlan);
 
     // Validate required fields
     if (!workoutPlan.weeklySchedule) {
       throw new Error('Invalid workout plan structure');
     }
 
+    console.log('✅ Workout plan validated and cleaned');
     return workoutPlan;
   } catch (error: any) {
     console.error('❌ Error generating workout plan:', error);
