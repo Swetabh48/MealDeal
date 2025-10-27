@@ -1,5 +1,6 @@
 // src/lib/workout-generator.ts
 import { getGeminiModel } from './gemini';
+import { parseAIResponse, validateWorkoutPlan } from './parse-json';
 
 interface UserProfile {
   age: number;
@@ -198,14 +199,15 @@ Return ONLY the JSON object, no additional text.
     }
 
     // Clean up the response
-    let cleanedResult = result.trim();
-    if (cleanedResult.startsWith('```json')) {
-      cleanedResult = cleanedResult.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (cleanedResult.startsWith('```')) {
-      cleanedResult = cleanedResult.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    let workoutPlan;
+    try {
+      workoutPlan = parseAIResponse(result);
+      validateWorkoutPlan(workoutPlan);
+      workoutPlan = cleanWorkoutPlan(workoutPlan);
+    } catch (parseError: any) {
+      console.error('Failed to parse/validate workout plan:', parseError.message);
+      throw new Error(parseError.message || 'Failed to parse AI response. Please try again.');
     }
-
-    let workoutPlan = JSON.parse(cleanedResult);
 
     // Clean and validate the plan
     workoutPlan = cleanWorkoutPlan(workoutPlan);

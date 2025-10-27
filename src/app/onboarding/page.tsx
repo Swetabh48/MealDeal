@@ -145,7 +145,7 @@ export default function OnboardingPage() {
       if (!dietResponse.ok) {
         const errorData = await dietResponse.json();
         console.error('❌ Diet generation error:', errorData);
-        
+        toast.dismiss('diet-gen');
         const errorMsg = errorData.details || errorData.error || 'Failed to generate diet plan';
         setErrorDetails(errorMsg);
         
@@ -192,6 +192,7 @@ export default function OnboardingPage() {
           } else {
             const errorData = await workoutResponse.json();
             console.warn('⚠️ Workout plan generation failed:', errorData);
+            toast.dismiss('workout-gen');
             toast.warning('Workout plan will be generated later. Diet plan is ready!', { id: 'workout-gen' });
             // Don't throw error - continue with diet plan only
           }
@@ -214,6 +215,9 @@ export default function OnboardingPage() {
       
     } catch (error: any) {
       console.error('❌ Onboarding error:', error);
+      toast.dismiss('diet-gen');
+      toast.dismiss('workout-gen');
+      toast.dismiss('mess-menu');
       const errorMessage = error.message || 'Something went wrong. Please try again.';
       toast.error(errorMessage);
       setErrorDetails(errorMessage);

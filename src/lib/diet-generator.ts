@@ -1,4 +1,5 @@
 import { getGeminiModel } from './gemini';
+import { parseAIResponse, validateDietPlan } from './parse-json';
 
 interface UserProfile {
   age: number;
@@ -295,20 +296,13 @@ Return ONLY the JSON object, no additional text.
 
     console.log('✅ Gemini AI response received');
 
-    let cleanedResult = result.trim();
-
-    if (cleanedResult.startsWith('```json')) {
-      cleanedResult = cleanedResult.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (cleanedResult.startsWith('```')) {
-      cleanedResult = cleanedResult.replace(/^```\n?/, '').replace(/\n?```$/, '');
-    }
-
     let dietPlan;
     try {
-      dietPlan = JSON.parse(cleanedResult);
-    } catch (parseError) {
-      console.error('Failed to parse Gemini response. First 500 chars:', cleanedResult.substring(0, 500));
-      throw new Error('Failed to parse AI response. The AI returned invalid JSON. Please try again.');
+      dietPlan = parseAIResponse(result);
+      validateDietPlan(dietPlan);
+    } catch (parseError: any) {
+      console.error('Failed to parse/validate diet plan:', parseError.message);
+      throw new Error(parseError.message || 'Failed to parse AI response. Please try again.');
     }
 
     if (!dietPlan.dailyCalories || !dietPlan.weeklyPlan) {

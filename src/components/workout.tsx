@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   ArrowLeft, Dumbbell, CheckCircle, Clock, Flame,
   Target, Play, X, Calendar, TrendingUp, Info,
-  ChevronRight, Star, Zap, Heart, Award
+  ChevronRight, Star, Zap, Heart, Award,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,6 +27,7 @@ export default function WorkoutPage() {
   const [trackingDialog, setTrackingDialog] = useState(false);
   const [currentWorkout, setCurrentWorkout] = useState<any>(null);
   const [workoutTracking, setWorkoutTracking] = useState<any>({});
+  const [regenerating, setRegenerating] = useState(false);
 
   const days = [
     { key: 'monday', label: 'Mon', short: 'M' },
@@ -156,21 +158,138 @@ export default function WorkoutPage() {
   }
 
   if (!workoutPlan) {
+    const handleRegenerateWorkout = async () => {
+      setRegenerating(true);
+      toast.loading('Generating your workout plan...', { id: 'workout-regen' });
+      
+      try {
+        // First, fetch user profile to get workout preferences
+        const profileRes = await fetch('/api/user/profile');
+        if (!profileRes.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+        
+        const { user } = await profileRes.json();
+        
+        // Generate workout plan
+        const response = await fetch('/api/workout/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gymTiming: user.workoutPreferences?.gymTiming || '',
+            workoutDays: user.workoutPreferences?.workoutDays || 5,
+            preferredType: user.workoutPreferences?.preferredType || 'both',
+            availableEquipment: user.workoutPreferences?.availableEquipment || [],
+            experience: user.workoutPreferences?.experience || 'beginner',
+            focusAreas: user.workoutPreferences?.focusAreas || []
+          }),
+        });
+
+        if (response.ok) {
+          toast.success('Workout plan generated! 🎉', { id: 'workout-regen' });
+          // Refresh data
+          await fetchData();
+          setRegenerating(false);
+        } else {
+          const errorData = await response.json();
+          toast.dismiss('workout-regen');
+          toast.error(errorData.details || 'Failed to generate workout plan', { duration: 5000 });
+          setRegenerating(false);
+        }
+      } catch (error: any) {
+        console.error('Error regenerating workout:', error);
+        toast.dismiss('workout-regen');
+        toast.error(error.message || 'Failed to generate workout plan', { duration: 5000 });
+        setRegenerating(false);
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-red-50 p-6">
         <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <button 
+              onClick={() => router.back()} 
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back
+            </button>
+            <Link href="/dashboard">
+              <Button variant="outline" className="float-right">
+                Dashboard
+              </Button>
+            </Link>
+          </div>
+
           <Card className="border-0 shadow-xl">
             <CardContent className="p-12 text-center">
-              <Dumbbell className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold mb-4">No Workout Plan Yet</h2>
-              <p className="text-xl text-gray-600 mb-8">
-                Let&apos;s create your personalized workout routine
+              <div className="bg-gradient-to-r from-orange-500 to-red-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Dumbbell className="w-10 h-10 text-white" />
+              </div>
+              
+              <h2 className="text-3xl font-bold mb-4 text-gray-900">No Workout Plan Yet</h2>
+              
+              <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                Let&apos;s create your personalized workout routine based on your fitness goals and preferences
               </p>
-              <Link href="/onboarding">
-                <Button size="lg" className="bg-gradient-to-r from-orange-600 to-red-600">
-                  Create Workout Plan
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center justify-center gap-3 text-gray-700">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span>Exercises tailored to your medical conditions</span>
+                </div>
+                <div className="flex items-center justify-center gap-3 text-gray-700">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span>Workout timing coordinated with your meals</span>
+                </div>
+                <div className="flex items-center justify-center gap-3 text-gray-700">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span>Progress tracking to stay motivated</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button 
+                  size="lg" 
+                  onClick={handleRegenerateWorkout}
+                  disabled={regenerating}
+                  className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-lg px-8 py-6"
+                >
+                  {regenerating ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      Generate Workout Plan
+                    </>
+                  )}
                 </Button>
-              </Link>
+                
+                <Link href="/profile">
+                  <Button 
+                    size="lg"
+                    variant="outline"
+                    className="text-lg px-8 py-6"
+                  >
+                    Update Preferences
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-start gap-3 text-left">
+                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-semibold mb-1">No workout preferences set?</p>
+                    <p>You can update your workout preferences (gym timing, equipment, experience level) in your profile and then generate your plan.</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
