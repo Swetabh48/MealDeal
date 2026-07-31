@@ -1,27 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import Dashboard from '@/components/dashboard';
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const { status } = useSession();
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
-    } else if (status === 'authenticated') {
-      setLoading(false);
+      window.location.assign('/login');
     }
-  }, [status, router]);
+  }, [status]);
 
-  if (loading) {
+  if (status === 'loading' || status === 'unauthenticated') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen md-page bg-mesh flex items-center justify-center">
+        <div className="text-center text-emerald-900">
+          <div className="w-12 h-12 border-2 border-emerald-900/20 border-t-amber-400 rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-medium">Loading dashboard…</p>
+        </div>
       </div>
     );
   }

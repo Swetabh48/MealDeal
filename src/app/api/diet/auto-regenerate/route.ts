@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Get additional context from request body if provided
     const body = await req.json().catch(() => ({}));
 
-    // Generate new diet plan
+    // Generate new diet plan with full profile context
     const dietData = await generateDietPlan({
       age: user.age!,
       gender: user.gender || 'male',
@@ -57,10 +57,20 @@ export async function POST(req: NextRequest) {
       medicalConditions: user.medicalConditions || [],
       budget: user.budget || 'middle',
       location: user.location || { country: 'India', state: '', city: '' },
-      additionalInfo: user.additionalInfo || {}
+      additionalInfo: {
+        goalDescription: user.additionalInfo?.goalDescription || '',
+        challenges: user.additionalInfo?.challenges || '',
+        expectations: user.additionalInfo?.expectations || '',
+      },
+      livesInHostel: user.additionalInfo?.livesInHostel || false,
+      messMenuText: user.additionalInfo?.messMenuText || '',
+      gymTiming: user.workoutPreferences?.gymTiming || undefined,
     });
 
-    console.log('✅ New diet plan generated');
+    console.log('✅ New diet plan generated', {
+      winner: dietData.generationMeta?.sources?.winner,
+      score: dietData.generationMeta?.finalScore,
+    });
 
     // Save new diet plan
     const dietPlan = await DietPlan.create({

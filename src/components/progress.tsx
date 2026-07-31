@@ -13,12 +13,14 @@ import {
   ArrowLeft, TrendingUp, TrendingDown, Calendar,
   Plus, Scale, Ruler, Award, Target, Minus
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { toast } from 'sonner';
+import { Droplets, Moon, Flame } from 'lucide-react';
 
 export default function ProgressPage() {
   const router = useRouter();
   const [progressData, setProgressData] = useState<any[]>([]);
+  const [weekly, setWeekly] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -40,9 +42,10 @@ export default function ProgressPage() {
 
   const fetchData = async () => {
     try {
-      const [progressRes, profileRes] = await Promise.all([
+      const [progressRes, profileRes, weeklyRes] = await Promise.all([
         fetch('/api/progress'),
-        fetch('/api/user/profile')
+        fetch('/api/user/profile'),
+        fetch('/api/progress/weekly'),
       ]);
 
       if (progressRes.ok) {
@@ -57,6 +60,11 @@ export default function ProgressPage() {
           ...prev,
           weight: data.user.weight?.toString() || ''
         }));
+      }
+
+      if (weeklyRes.ok) {
+        const data = await weeklyRes.json();
+        setWeekly(data);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -134,7 +142,7 @@ export default function ProgressPage() {
   const chartData = getChartData();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-mesh">
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -297,6 +305,56 @@ export default function ProgressPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* This week */}
+        {weekly?.days?.length > 0 && (
+          <Card className="mb-8 border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-3 flex-wrap">
+                <span>This week</span>
+                <span className="text-sm font-normal text-gray-500">
+                  {weekly.summary?.mealsEaten ?? 0}/{weekly.summary?.mealsPlanned ?? 0} meals · {weekly.summary?.adherencePct ?? 0}% adherence
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="rounded-xl bg-orange-50 p-4">
+                  <div className="flex items-center gap-2 text-orange-700 text-sm mb-1">
+                    <Flame className="w-4 h-4" /> Avg calories
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{weekly.summary?.avgCalories ?? 0}</p>
+                </div>
+                <div className="rounded-xl bg-sky-50 p-4">
+                  <div className="flex items-center gap-2 text-sky-700 text-sm mb-1">
+                    <Droplets className="w-4 h-4" /> Avg water
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{weekly.summary?.avgWaterGlasses ?? 0} glasses</p>
+                </div>
+                <div className="rounded-xl bg-indigo-50 p-4">
+                  <div className="flex items-center gap-2 text-indigo-700 text-sm mb-1">
+                    <Moon className="w-4 h-4" /> Avg sleep
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{weekly.summary?.avgSleepHours ?? 0}h</p>
+                </div>
+              </div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weekly.days}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                    <XAxis dataKey="label" stroke="#666" />
+                    <YAxis stroke="#666" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="mealsEaten" name="Meals eaten" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="waterGlasses" name="Water glasses" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sleepHours" name="Sleep (h)" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Weight Chart */}
         {chartData.length > 0 && (

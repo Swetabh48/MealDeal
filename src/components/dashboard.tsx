@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -13,9 +11,13 @@ import {
   Heart, Clock, ChefHat, Check, Menu,
   Home, TrendingUp, BookOpen, User, X, LogOut,
   Sparkles, RefreshCw,
-  Dumbbell
+  Dumbbell, Flame, Target
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
+import { ThemeToggle } from '@/components/theme-provider';
+import { toast } from 'sonner';
+import { cacheGet, cacheSet } from '@/lib/cache';
+import { ensureNotificationPermission, scheduleMealReminders } from '@/lib/meal-reminders';
 
 interface MealLog {
   mealName: string;
@@ -63,7 +65,6 @@ interface UserProfile {
 
 export default function Dashboard() {
   const { data: session } = useSession();
-  const router = useRouter();
   const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,11 +73,20 @@ export default function Dashboard() {
   const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
   const [customMeals, setCustomMeals] = useState<CustomMeal[]>([]);
   const [waterGlasses, setWaterGlasses] = useState(0);
+  const [sleepHours, setSleepHours] = useState<string>('');
+  const [sleepQuality, setSleepQuality] = useState<'poor' | 'ok' | 'great' | ''>('');
+  const [remindersOn, setRemindersOn] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [loggedMealNames, setLoggedMealNames] = useState<string[]>([]);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [adjustingMeal, setAdjustingMeal] = useState<any>(null);
   const [foodAdjustments, setFoodAdjustments] = useState<Record<number, string>>({});
+  const [logging, setLogging] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [adherencePercent, setAdherencePercent] = useState(0);
+  const [adherencePlanned, setAdherencePlanned] = useState(0);
+  const [adherenceChecked, setAdherenceChecked] = useState(0);
   const userId = session?.user?.id || '';
 
  useEffect(() => {
@@ -86,15 +96,87 @@ export default function Dashboard() {
   const today = days[new Date().getDay()];
   setCurrentDay(today);
 
-  fetchData();
   loadTodayLogs();
-  
-  const interval = setInterval(() => {
-    fetchCustomMeals();
-  }, 30000);
-  
-  return () => clearInterval(interval);
+  bootstrapDashboard();
+  fetchDailyLog();
 }, [userId]);
+
+  useEffect(() => {
+    if (!dietPlan || !remindersOn) return;
+    const meals = getTodaysMeals().map((m: any) => ({ name: m.name, time: m.time }));
+    return scheduleMealReminders(meals, 20);
+  }, [dietPlan, remindersOn, currentDay]);
+
+  const fetchDailyLog = async () => {
+    try {
+      const res = await fetch('/api/daily-log');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.log) {
+        setWaterGlasses(data.log.waterGlasses || 0);
+        if (data.log.sleepHours != null) setSleepHours(String(data.log.sleepHours));
+        if (data.log.sleepQuality) setSleepQuality(data.log.sleepQuality);
+      }
+    } catch {
+      /* offline ok */
+    }
+  };
+
+  const enableReminders = async () => {
+    const ok = await ensureNotificationPermission();
+    if (ok) {
+      setRemindersOn(true);
+      localStorage.setItem('yelediet:remindersOn', '1');
+      toast.success('Meal reminders on — you’ll get a ping ~20 min before each meal');
+    } else {
+      toast.error('Allow notifications in the browser to enable reminders');
+    }
+  };
+
+  useEffect(() => {
+    if (localStorage.getItem('yelediet:remindersOn') === '1') {
+      setRemindersOn(true);
+    }
+  }, []);
+
+  const bootstrapDashboard = async () => {
+    try {
+      const cachedDiet = cacheGet<any>('yelediet:dietPlan');
+      const cachedProfile = cacheGet<any>('yelediet:userProfile');
+      if (cachedDiet) setDietPlan(cachedDiet);
+      if (cachedProfile) {
+        setUserProfile(cachedProfile);
+        setLoading(false);
+      }
+
+      const res = await fetch('/api/dashboard/bootstrap');
+      if (!res.ok) {
+        // Fallback to old multi-fetch if bootstrap fails
+        await fetchData();
+        await fetchCheckIns();
+        return;
+      }
+
+      const data = await res.json();
+      if (data.dietPlan) {
+        setDietPlan(data.dietPlan);
+        cacheSet('yelediet:dietPlan', data.dietPlan, 30 * 60 * 1000);
+      }
+      if (data.user) {
+        setUserProfile(data.user);
+        cacheSet('yelediet:userProfile', data.user, 30 * 60 * 1000);
+      }
+      applyCheckInStats(data);
+      if (Array.isArray(data.customMeals)) {
+        setCustomMeals(data.customMeals);
+      }
+    } catch (error) {
+      console.error('Dashboard bootstrap error:', error);
+      await fetchData();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -106,11 +188,17 @@ export default function Dashboard() {
       if (dietRes.ok) {
         const dietData = await dietRes.json();
         setDietPlan(dietData.dietPlan);
+        if (dietData.dietPlan) {
+          cacheSet('yelediet:dietPlan', dietData.dietPlan, 30 * 60 * 1000);
+        }
       }
 
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setUserProfile(profileData.user);
+        if (profileData.user) {
+          cacheSet('yelediet:userProfile', profileData.user, 30 * 60 * 1000);
+        }
       }
       
       await fetchCustomMeals();
@@ -139,9 +227,47 @@ export default function Dashboard() {
 
   const refreshData = async () => {
     setRefreshing(true);
-    await Promise.all([fetchData(), fetchCustomMeals()]);
+    await bootstrapDashboard();
     loadTodayLogs();
     setRefreshing(false);
+  };
+
+  const applyCheckInStats = (data: any) => {
+    if (typeof data.currentStreak === 'number') setCurrentStreak(data.currentStreak);
+    if (typeof data.bestStreak === 'number') setBestStreak(data.bestStreak);
+    if (data.adherence) {
+      setAdherencePercent(data.adherence.percent || 0);
+      setAdherencePlanned(data.adherence.planned || 0);
+      setAdherenceChecked(data.adherence.checkedIn || 0);
+    }
+    if (Array.isArray(data.loggedMealNames)) {
+      setLoggedMealNames(data.loggedMealNames);
+      saveLoggedMealNames(data.loggedMealNames);
+    }
+    if (Array.isArray(data.checkIns)) {
+      const logs: MealLog[] = data.checkIns.map((c: any) => ({
+        mealName: c.mealName,
+        calories: c.calories || 0,
+        protein: c.protein || 0,
+        carbs: c.carbs || 0,
+        fats: c.fats || 0,
+        timestamp: c.createdAt ? new Date(c.createdAt) : new Date(),
+        isCustom: false,
+      }));
+      setMealLogs(logs);
+      saveLogs(logs);
+    }
+  };
+
+  const fetchCheckIns = async () => {
+    try {
+      const res = await fetch('/api/meals/checkin');
+      if (!res.ok) return;
+      const data = await res.json();
+      applyCheckInStats(data);
+    } catch (error) {
+      console.error('Error fetching check-ins:', error);
+    }
   };
 
   const loadTodayLogs = () => {
@@ -175,13 +301,36 @@ export default function Dashboard() {
   const today = new Date().toDateString();
   localStorage.setItem(`water_${userId}_${today}`, count.toString());
   setWaterGlasses(count);
+  fetch('/api/daily-log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ waterGlasses: count }),
+  }).catch(() => {});
 };
 
-  const logMeal = (meal: any) => {
+  const saveSleep = (hours: string, quality: 'poor' | 'ok' | 'great' | '') => {
+    setSleepHours(hours);
+    setSleepQuality(quality);
+    const payload: any = {};
+    if (hours !== '') payload.sleepHours = parseFloat(hours);
+    if (quality) payload.sleepQuality = quality;
+    fetch('/api/daily-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(() => toast.success('Sleep logged'))
+      .catch(() => toast.error('Could not save sleep'));
+  };
+
+  const logMeal = async (meal: any) => {
+    if (logging) return;
+    setLogging(true);
+
     const totalNutrition = meal.foods.reduce((acc: any, food: any, idx: number) => {
       const consumed = parseFloat(foodAdjustments[idx] || '0');
       const quantity = parseFloat(food.quantity.match(/\d+/)?.[0] || '1');
-      const ratio = consumed / quantity;
+      const ratio = quantity > 0 ? consumed / quantity : 1;
       
       return {
         calories: acc.calories + (food.calories * ratio),
@@ -201,18 +350,71 @@ export default function Dashboard() {
       isCustom: false
     };
 
-    const updatedLogs = [...mealLogs, newLog];
-    const updatedLoggedNames = [...loggedMealNames, meal.name];
+    const updatedLogs = [...mealLogs.filter((l) => l.mealName !== meal.name), newLog];
+    const updatedLoggedNames = loggedMealNames.includes(meal.name)
+      ? loggedMealNames
+      : [...loggedMealNames, meal.name];
     
     saveLogs(updatedLogs);
     saveLoggedMealNames(updatedLoggedNames);
-    
-    // Force immediate state update
     setMealLogs(updatedLogs);
     setLoggedMealNames(updatedLoggedNames);
-    
     setShowAdjustmentModal(false);
     setFoodAdjustments({});
+
+    try {
+      const res = await fetch('/api/meals/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mealName: meal.name,
+          mealTime: meal.time,
+          calories: newLog.calories,
+          protein: newLog.protein,
+          carbs: newLog.carbs,
+          fats: newLog.fats,
+          portionNote: 'portion-adjusted',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        applyCheckInStats(data);
+        toast.success(
+          data.adherence?.qualifies
+            ? `Checked in · ${data.currentStreak}-day streak 🔥`
+            : `Checked in · ${data.adherence?.checkedIn || 0}/${data.adherence?.planned || '?'} meals today`
+        );
+      } else {
+        toast.error('Saved locally — server sync failed');
+      }
+    } catch {
+      toast.error('Saved locally — check your connection');
+    } finally {
+      setLogging(false);
+    }
+  };
+
+  const undoCheckIn = async (mealName: string) => {
+    const updatedLogs = mealLogs.filter((l) => l.mealName !== mealName);
+    const updatedNames = loggedMealNames.filter((n) => n !== mealName);
+    saveLogs(updatedLogs);
+    saveLoggedMealNames(updatedNames);
+    setMealLogs(updatedLogs);
+    setLoggedMealNames(updatedNames);
+
+    try {
+      const res = await fetch(
+        `/api/meals/checkin?mealName=${encodeURIComponent(mealName)}`,
+        { method: 'DELETE' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        applyCheckInStats(data);
+        toast.message('Check-in undone');
+      }
+    } catch {
+      toast.error('Could not sync undo');
+    }
   };
 
   const openAdjustmentModal = (meal: any) => {
@@ -312,7 +514,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="min-h-screen flex items-center justify-center bg-mesh">
         <div className="text-center">
           <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading your dashboard...</p>
@@ -323,24 +525,25 @@ export default function Dashboard() {
 
   if (!dietPlan) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
+      <div className="min-h-screen md-page bg-mesh p-6">
         <div className="max-w-4xl mx-auto">
           <Card className="border-0 shadow-xl">
             <CardContent className="p-12 text-center">
-              <div className="bg-gradient-to-r from-blue-500 to-purple-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="bg-gradient-to-r from-emerald-700 to-emerald-900 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Apple className="w-10 h-10 text-white" />
               </div>
               <h2 className="text-3xl font-bold mb-4">Welcome to MealDeal!</h2>
               <p className="text-xl text-gray-600 mb-8">
                 Let&apos;s create your personalized nutrition plan
               </p>
-              <Button 
-                size="lg"
-                onClick={() => router.push('/onboarding')}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-lg px-8"
-              >
-                Get Started
-              </Button>
+              <a href="/onboarding">
+                <Button 
+                  size="lg"
+                  className="bg-gradient-to-r from-emerald-700 to-emerald-900 text-lg px-8"
+                >
+                  Get Started
+                </Button>
+              </a>
             </CardContent>
           </Card>
         </div>
@@ -357,45 +560,53 @@ export default function Dashboard() {
   const fatsPercent = dietPlan.dailyFats ? (consumed.fats / dietPlan.dailyFats) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen md-page bg-mesh text-emerald-950 dark:bg-gray-950 overflow-x-hidden">
       {/* Header with Navigation */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="bg-white/90 dark:bg-gray-900 border-b border-emerald-900/10 sticky top-0 z-[100] shadow-sm backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
             <div className="flex items-center gap-3">
-              <Heart className="w-8 h-8 text-rose-500" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-rose-500 bg-clip-text text-transparent">
+              <div className="w-8 h-8 bg-emerald-900 rounded-lg flex items-center justify-center">
+                <Heart className="w-5 h-5 text-amber-400" />
+              </div>
+              <span className="font-display text-2xl font-bold text-emerald-950 dark:text-white">
                 MealDeal
               </span>
             </div>
             
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
-              <Link href="/dashboard" className="flex items-center gap-2 text-blue-600 font-medium">
+            {/* Desktop Navigation — hard links so clicks never wait on router/compile */}
+            <nav className="hidden md:flex items-center gap-4 lg:gap-6">
+              <a href="/dashboard" className="flex items-center gap-2 text-emerald-800 font-medium">
                 <Home className="w-5 h-5" />
                 Home
-              </Link>
-              <Link href="/meal-plan" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+              </a>
+              <a href="/meal-plan" className="flex items-center gap-2 text-gray-600 hover:text-emerald-800">
                 <Calendar className="w-5 h-5" />
                 Meal Plan
-              </Link>
-              <Link href="/workout" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
-                  <Dumbbell className="w-4 h-4 mr-2" />
-                  My Workouts
-              </Link>
-              <Link href="/progress" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+              </a>
+              <a href="/recipes" className="flex items-center gap-2 text-gray-600 hover:text-emerald-800">
+                <ChefHat className="w-5 h-5" />
+                Recipes
+              </a>
+              <a href="/workout" className="flex items-center gap-2 text-gray-600 hover:text-emerald-800">
+                <Dumbbell className="w-4 h-4" />
+                Workouts
+              </a>
+              <a href="/progress" className="flex items-center gap-2 text-gray-600 hover:text-emerald-800">
                 <TrendingUp className="w-5 h-5" />
                 Progress
-              </Link>
-              <Link href="/recommendations" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+              </a>
+              <a href="/recommendations" className="flex items-center gap-2 text-gray-600 hover:text-emerald-800">
                 <BookOpen className="w-5 h-5" />
                 Tips
-              </Link>
-              <Link href="/profile" className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+              </a>
+              <a href="/profile" className="flex items-center gap-2 text-gray-600 hover:text-emerald-800">
                 <User className="w-5 h-5" />
                 Profile
-              </Link>
-              <button 
+              </a>
+              <ThemeToggle />
+              <button
+                type="button"
                 onClick={() => signOut({ callbackUrl: '/' })}
                 className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors"
               >
@@ -405,8 +616,8 @@ export default function Dashboard() {
             </nav>
 
             {/* Mobile Menu Button */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               className="md:hidden"
               onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -418,32 +629,41 @@ export default function Dashboard() {
           {/* Mobile Navigation */}
           {showMobileMenu && (
             <nav className="md:hidden py-4 border-t">
-              <div className="flex flex-col gap-3">
-                <Link href="/dashboard" className="flex items-center gap-2 text-blue-600 font-medium py-2">
+              <div className="flex flex-col gap-1">
+                <a href="/dashboard" className="flex items-center gap-2 text-emerald-800 font-medium py-2">
                   <Home className="w-5 h-5" />
                   Home
-                </Link>
-                <Link href="/meal-plan" className="flex items-center gap-2 text-gray-600 py-2">
+                </a>
+                <a href="/meal-plan" className="flex items-center gap-2 text-gray-600 py-2">
                   <Calendar className="w-5 h-5" />
                   Meal Plan
-                </Link>
-                <Link href="/workout" className="flex items-center gap-2 text-gray-600">
+                </a>
+                <a href="/recipes" className="flex items-center gap-2 text-gray-600 py-2">
+                  <ChefHat className="w-5 h-5" />
+                  Recipes
+                </a>
+                <a href="/workout" className="flex items-center gap-2 text-gray-600 py-2">
                   <Dumbbell className="w-5 h-5" />
                   My Workouts
-              </Link>
-                <Link href="/progress" className="flex items-center gap-2 text-gray-600 py-2">
+                </a>
+                <a href="/progress" className="flex items-center gap-2 text-gray-600 py-2">
                   <TrendingUp className="w-5 h-5" />
                   Progress
-                </Link>
-                <Link href="/recommendations" className="flex items-center gap-2 text-gray-600 py-2">
+                </a>
+                <a href="/recommendations" className="flex items-center gap-2 text-gray-600 py-2">
                   <BookOpen className="w-5 h-5" />
                   Tips
-                </Link>
-                <Link href="/profile" className="flex items-center gap-2 text-gray-600 py-2">
+                </a>
+                <a href="/profile" className="flex items-center gap-2 text-gray-600 py-2">
                   <User className="w-5 h-5" />
                   Profile
-                </Link>
+                </a>
+                <div className="flex items-center gap-2 py-2">
+                  <ThemeToggle />
+                  <span className="text-gray-600 text-sm">Theme</span>
+                </div>
                 <button 
+                  type="button"
                   onClick={() => signOut({ callbackUrl: '/' })}
                   className="flex items-center gap-2 text-gray-600 hover:text-red-600 py-2 w-full text-left"
                 >
@@ -479,11 +699,50 @@ export default function Dashboard() {
           </Button>
         </div>
 
+        {/* Meal check-in streak */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <Card className="border-0 bg-gradient-to-br from-orange-500 to-rose-500 text-white overflow-hidden md-depth-static">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="bg-white/20 rounded-xl p-2.5">
+                <Flame className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold leading-none">{currentStreak}</p>
+                <p className="text-xs text-orange-100 mt-1">Day streak</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="bg-amber-50 rounded-xl p-2.5">
+                <Sparkles className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 leading-none">{bestStreak}</p>
+                <p className="text-xs text-gray-500 mt-1">Best streak</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="bg-emerald-50 rounded-xl p-2.5">
+                <Target className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold text-gray-900 leading-none">{adherencePercent}%</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  Today {adherenceChecked}/{adherencePlanned || getTodaysMeals().length || '—'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Today's Nutrition - Priority #1 */}
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 bg-white/90 dark:bg-gray-900/90 md-depth">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl font-bold flex items-center gap-2">
                   <Activity className="w-5 h-5 text-green-600" />
@@ -549,7 +808,7 @@ export default function Dashboard() {
 
             {/* Current Meal - Priority #2 */}
             {currentMeal ? (
-              <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+              <Card className="border-0 shadow-xl bg-gradient-to-br from-emerald-700 to-emerald-900 text-white">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -575,29 +834,19 @@ export default function Dashboard() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    {isMealTimeReached(currentMeal.time) ? (
-                      <Button 
-                        className="flex-1 bg-white text-purple-600 hover:bg-blue-50 h-10"
-                        onClick={() => openAdjustmentModal(currentMeal)}
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        Mark Eaten
-                      </Button>
-                    ) : (
-                      <Button 
-                        className="flex-1 bg-white/30 text-white cursor-not-allowed h-10"
-                        disabled
-                      >
-                        <Clock className="w-4 h-4 mr-1" />
-                        Not Yet Time
-                      </Button>
-                    )}
-                    <Link href="/meal-plan" className="flex-1">
+                    <Button 
+                      className="flex-1 bg-white text-purple-600 hover:bg-blue-50 h-10"
+                      onClick={() => openAdjustmentModal(currentMeal)}
+                    >
+                      <Check className="w-4 h-4 mr-1" />
+                      {isMealTimeReached(currentMeal.time) ? 'Mark Eaten' : 'Check in early'}
+                    </Button>
+                    <a href="/meal-plan" className="flex-1">
                       <Button className="w-full bg-white/20 hover:bg-white/30 text-white h-10">
                         View Plan
                         <ChevronRight className="ml-1 w-4 h-4" />
                       </Button>
-                    </Link>
+                    </a>
                   </div>
                 </CardContent>
               </Card>
@@ -610,13 +859,14 @@ export default function Dashboard() {
                   <h3 className="text-2xl font-bold mb-2">All Meals Logged! 🎉</h3>
                   <p className="text-green-100 mb-4">
                     Great job completing all your meals for today!
+                    {currentStreak > 0 ? ` You're on a ${currentStreak}-day streak.` : ''}
                   </p>
-                  <Link href="/meal-plan">
+                  <a href="/meal-plan">
                     <Button className="bg-white text-green-600 hover:bg-green-50">
                       View Tomorrow&apos;s Plan
                       <ChevronRight className="ml-2 w-4 h-4" />
                     </Button>
-                  </Link>
+                  </a>
                 </CardContent>
               </Card>
             )}
@@ -651,12 +901,25 @@ export default function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex items-center gap-2">
+                          <div>
                           <p className={`font-bold text-sm ${log.isCustom ? 'text-purple-600' : 'text-green-600'}`}>
                             {Number.isFinite(log.calories) ? log.calories : 0}
                           </p>
                           <p className="text-xs text-gray-600">{Number.isFinite(log.protein) ? log.protein : 0}p • {Number.isFinite(log.carbs) ? log.carbs : 0}c
 </p>
+                          </div>
+                          {!log.isCustom && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-gray-500 hover:text-red-600"
+                              onClick={() => undoCheckIn(log.mealName)}
+                              title="Undo check-in"
+                            >
+                              Undo
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -669,7 +932,7 @@ export default function Dashboard() {
           {/* Side Column */}
           <div className="space-y-6">
             {/* Water Tracker */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-cyan-400 to-blue-500 text-white">
+            <Card className="border-0 bg-gradient-to-br from-cyan-400 to-blue-500 text-white md-depth-static">
               <CardContent className="p-6">
                 <Droplets className="w-10 h-10 mb-3" />
                 <h3 className="text-xl font-bold mb-2">Water Intake</h3>
@@ -698,6 +961,70 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
+            {/* Sleep log */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-indigo-600" />
+                  Sleep last night
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={24}
+                    step={0.5}
+                    value={sleepHours}
+                    onChange={(e) => setSleepHours(e.target.value)}
+                    placeholder="Hours"
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                    onClick={() => saveSleep(sleepHours, sleepQuality || 'ok')}
+                  >
+                    Save
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  {(['poor', 'ok', 'great'] as const).map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setSleepQuality(q)}
+                      className={`flex-1 text-xs py-2 rounded-lg border capitalize ${
+                        sleepQuality === q
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Meal reminders */}
+            <Card className="border-0 shadow-lg border-amber-100">
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-gray-900 mb-1">Meal reminders</p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Daily: browser notification ~20 min before each meal. Sunday: push + email (if SMTP is set) to regenerate next week.
+                </p>
+                {remindersOn ? (
+                  <Badge className="bg-amber-500 text-white">Reminders on</Badge>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={enableReminders} className="w-full">
+                    Enable notifications
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Quick Tips - Simplified */}
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
@@ -709,7 +1036,7 @@ export default function Dashboard() {
                     const cleanRec = rec.replace(/\*\*/g, '').split('.')[0] + '.';
                     return (
                       <div key={idx} className="flex gap-2 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                        <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        <div className="bg-gradient-to-r from-emerald-700 to-emerald-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                           {idx + 1}
                         </div>
                         <p className="text-sm text-gray-800 leading-relaxed">{cleanRec}</p>
@@ -717,12 +1044,12 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
-                <Link href="/recommendations">
+                <a href="/recommendations">
                   <Button variant="ghost" className="w-full mt-3 text-sm hover:bg-blue-50">
                     View All Tips
                     <ChevronRight className="ml-1 w-4 h-4" />
                   </Button>
-                </Link>
+                </a>
               </CardContent>
             </Card>
 
@@ -732,24 +1059,24 @@ export default function Dashboard() {
                 <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Link href="/meal-plan">
+                <a href="/meal-plan">
                   <Button variant="outline" className="w-full justify-start">
                     <Calendar className="w-4 h-4 mr-2" />
                     Log Custom Meal
                   </Button>
-                </Link>
-                <Link href="/progress">
+                </a>
+                <a href="/progress">
                   <Button variant="outline" className="w-full justify-start">
                     <TrendingUp className="w-4 h-4 mr-2" />
                     Update Weight
                   </Button>
-                </Link>
-                <Link href="/doctor-chat">
+                </a>
+                <a href="/doctor-chat">
                   <Button variant="outline" className="w-full justify-start">
                     <MessageCircle className="w-4 h-4 mr-2" />
                     Ask AI Doctor
                   </Button>
-                </Link>
+                </a>
               </CardContent>
             </Card>
           </div>
@@ -757,18 +1084,28 @@ export default function Dashboard() {
       </main>
 
       {/* Floating Chat Button */}
-      <button
-        onClick={() => router.push('/doctor-chat')}
+      <a
+        href="/doctor-chat"
         className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all z-50"
         aria-label="Chat with AI Doctor"
       >
         <MessageCircle className="w-6 h-6" />
-      </button>
+      </a>
 
       {/* Meal Adjustment Modal */}
       {showAdjustmentModal && adjustingMeal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-auto">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[90] p-4"
+          onClick={() => {
+            setShowAdjustmentModal(false);
+            setFoodAdjustments({});
+            setAdjustingMeal(null);
+          }}
+        >
+          <Card
+            className="max-w-2xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <CardHeader className="border-b">
               <CardTitle className="text-xl">How Much Did You Eat?</CardTitle>
               <p className="text-sm text-gray-600 mt-1">
@@ -848,16 +1185,18 @@ export default function Dashboard() {
                   onClick={() => {
                     setShowAdjustmentModal(false);
                     setFoodAdjustments({});
+                    setAdjustingMeal(null);
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
+                  className="flex-1 bg-gradient-to-r from-emerald-700 to-emerald-900"
                   onClick={() => logMeal(adjustingMeal)}
+                  disabled={logging}
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Confirm & Log
+                  {logging ? 'Saving…' : 'Confirm & Log'}
                 </Button>
               </div>
             </CardContent>

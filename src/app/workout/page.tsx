@@ -12,7 +12,7 @@ export default function Workout() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      window.location.assign('/login');
     } else if (status === 'authenticated') {
       setLoading(false);
     }

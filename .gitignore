@@ -34,6 +34,19 @@ yarn-error.log*
 .env
 .env.local
 
+# Manus API scratch
+manus-task.json
+manus-messages.json
+manus-design-result.md
+manus-landing-output.json
+manus-globals.css
+manus-landing.tsx
+manus-site-shell.css
+
+# local logs
+dev-server.log
+*.log
+
 
 # vercel
 .vercel

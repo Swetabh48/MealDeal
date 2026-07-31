@@ -19,24 +19,19 @@ const cached = global._mongoose ?? (global._mongoose = { conn: null, promise: nu
 
 async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn) {
-    console.log('✅ Using cached MongoDB connection');
     return cached.conn;
   }
 
   if (!cached.promise) {
-    console.log('🔄 Connecting to MongoDB...');
     const opts = { 
       bufferCommands: false,
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 20000,
     };
     
     cached.promise = mongoose.connect(MONGODB_URI!, opts)
-      .then((m) => {
-        console.log('✅ MongoDB connected successfully');
-        return m;
-      });
+      .then((m) => m);
   }
 
   try {

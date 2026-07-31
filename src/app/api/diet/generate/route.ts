@@ -48,17 +48,31 @@ export async function POST(req: NextRequest) {
 
     // Get additional context from request body
     const body = await req.json().catch(() => ({}));
-    const { goalDescription, challenges, expectations, livesInHostel, messMenuText } = body;
+    const { goalDescription, challenges, expectations, livesInHostel, messMenuText, gymTiming } = body;
 
-    console.log('🤖 Generating AI diet plan...');
-    if (livesInHostel) {
+    const resolvedHostel = Boolean(
+      livesInHostel ?? user.additionalInfo?.livesInHostel ?? false
+    );
+    const resolvedMess = resolvedHostel
+      ? messMenuText || user.additionalInfo?.messMenuText || ''
+      : '';
+
+    console.log('🤖 Generating dual-pipeline diet plan...');
+    if (resolvedHostel) {
       console.log('🏠 Generating hostel-friendly plan...');
-      if (messMenuText) {
-        console.log('📋 Using provided mess menu');
-      }
+      if (resolvedMess) console.log('📋 Using mess menu text');
+    } else {
+      console.log('🏡 Non-hostel plan — mess branding disabled');
+    }
+
+    const resolvedGymTiming =
+      gymTiming || user.workoutPreferences?.gymTiming || undefined;
+
+    if (resolvedGymTiming) {
+      console.log('🏋️ Gym timing:', resolvedGymTiming);
     }
     
-    // Generate diet plan using AI with comprehensive user data
+    // Generate diet plan using dual pipeline (Gemini + rules + validator + recipes)
     const dietData = await generateDietPlan({
       age: user.age,
       gender: user.gender || 'male',
@@ -75,11 +89,15 @@ export async function POST(req: NextRequest) {
         challenges: challenges || user.additionalInfo?.challenges || '',
         expectations: expectations || user.additionalInfo?.expectations || '',
       },
-      livesInHostel: livesInHostel || user.additionalInfo?.livesInHostel || false,
-      messMenuText: messMenuText || user.additionalInfo?.messMenuText || '',
+      livesInHostel: resolvedHostel,
+      messMenuText: resolvedMess,
+      gymTiming: resolvedGymTiming,
     });
 
-    console.log('✅ Diet plan generated successfully');
+    console.log('✅ Diet plan generated successfully', {
+      winner: dietData.generationMeta?.sources?.winner,
+      score: dietData.generationMeta?.finalScore,
+    });
 
     console.log('💾 Saving diet plan to database...');
     // Save diet plan to database

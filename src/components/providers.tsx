@@ -6,7 +6,7 @@ import { ThemeProvider } from "./theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
       <ThemeProvider>
         {children}
         <Toaster richColors position="top-right" />

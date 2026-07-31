@@ -126,8 +126,8 @@ const UserSchema: Schema = new Schema(
   }
 );
 
-// Index for faster queries
-UserSchema.index({ email: 1 });
+// Index for faster queries — email already unique in schema field
+// UserSchema.index({ email: 1 });
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 

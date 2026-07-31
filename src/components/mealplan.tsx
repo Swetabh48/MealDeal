@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +12,12 @@ import { Label } from '@/components/ui/label';
 import { 
   ArrowLeft, ChefHat, Clock, Calendar, Utensils, Info, Heart, 
   Sparkles, TrendingUp, Plus, X, Check, AlertCircle,
-  IndianRupee
+  ShoppingCart, Flame, Share2, FileDown
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cacheGet, cacheSet, cacheClear } from '@/lib/cache';
+import { expandRecipeIfShort } from '@/lib/diet/expand-recipe';
+import { shareGroceryWhatsApp, downloadGroceryPdf } from '@/lib/grocery-export';
 
 export default function MealPlanPage() {
   const router = useRouter();
@@ -22,6 +25,14 @@ export default function MealPlanPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState('monday');
   const [expandedMeal, setExpandedMeal] = useState<number | null>(null);
+  const [groceryTab, setGroceryTab] = useState<'weekly' | 'monthly'>('weekly');
+  const [loggedMealNames, setLoggedMealNames] = useState<string[]>([]);
+  const [checkInBusy, setCheckInBusy] = useState<string | null>(null);
+  const [streak, setStreak] = useState(0);
+  const [swappingIdx, setSwappingIdx] = useState<number | null>(null);
+  const [swapPref, setSwapPref] = useState('more variety');
+  const [showSwapDialog, setShowSwapDialog] = useState(false);
+  const [swapTargetIdx, setSwapTargetIdx] = useState<number | null>(null);
   const [showCustomMealDialog, setShowCustomMealDialog] = useState(false);
   const [customMealData, setCustomMealData] = useState({
     mealType: 'Breakfast',
@@ -44,7 +55,118 @@ export default function MealPlanPage() {
     const today = new Date().getDay();
     setSelectedDay(days[today === 0 ? 6 : today - 1].key);
     checkAndRegeneratePlan();
+    fetchTodayCheckIns();
   }, []);
+
+  const todayKey = (() => {
+    const d = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return d[new Date().getDay()];
+  })();
+
+  const fetchTodayCheckIns = async () => {
+    try {
+      const res = await fetch('/api/meals/checkin');
+      if (!res.ok) return;
+      const data = await res.json();
+      setLoggedMealNames(data.loggedMealNames || []);
+      setStreak(data.currentStreak || 0);
+    } catch {
+      /* offline ok */
+    }
+  };
+
+  const checkInMeal = async (meal: any, e: MouseEvent) => {
+    e.stopPropagation();
+    if (checkInBusy) return;
+    setCheckInBusy(meal.name);
+    try {
+      const res = await fetch('/api/meals/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mealName: meal.name,
+          mealTime: meal.time,
+          calories: meal.totalCalories || 0,
+          protein: meal.totalProtein || 0,
+          carbs: meal.totalCarbs || 0,
+          fats: meal.totalFats || 0,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLoggedMealNames(data.loggedMealNames || [...loggedMealNames, meal.name]);
+        setStreak(data.currentStreak || 0);
+        toast.success(
+          data.currentStreak
+            ? `Ate it · ${data.currentStreak}-day streak 🔥`
+            : 'Meal checked in'
+        );
+      } else {
+        toast.error('Could not check in');
+      }
+    } catch {
+      toast.error('Check-in failed');
+    } finally {
+      setCheckInBusy(null);
+    }
+  };
+
+  const undoMeal = async (mealName: string, e: MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(
+        `/api/meals/checkin?mealName=${encodeURIComponent(mealName)}`,
+        { method: 'DELETE' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setLoggedMealNames(data.loggedMealNames || []);
+        setStreak(data.currentStreak || 0);
+        toast.message('Check-in undone');
+      }
+    } catch {
+      toast.error('Undo failed');
+    }
+  };
+
+  const openSwap = (mealIdx: number, e: MouseEvent) => {
+    e.stopPropagation();
+    setSwapTargetIdx(mealIdx);
+    setSwapPref('more variety / less boring');
+    setShowSwapDialog(true);
+  };
+
+  const confirmSwap = async () => {
+    if (swapTargetIdx == null) return;
+    setSwappingIdx(swapTargetIdx);
+    setShowSwapDialog(false);
+    try {
+      const res = await fetch('/api/meals/swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          day: selectedDay,
+          mealIndex: swapTargetIdx,
+          preference: swapPref,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Swap failed');
+        return;
+      }
+      cacheClear('yelediet:dietPlan');
+      setDietPlan(data.dietPlan);
+      cacheSet('yelediet:dietPlan', data.dietPlan, 30 * 60 * 1000);
+      toast.success('Meal swapped — full recipe updated');
+      setExpandedMeal(swapTargetIdx);
+    } catch {
+      toast.error('Swap failed');
+    } finally {
+      setSwappingIdx(null);
+      setSwapTargetIdx(null);
+    }
+  };
 
   const checkAndRegeneratePlan = async () => {
     const lastRegeneration = localStorage.getItem('lastPlanRegeneration');
@@ -80,7 +202,8 @@ export default function MealPlanPage() {
 
       if (res.ok) {
         localStorage.setItem('lastPlanRegeneration', new Date().toISOString());
-        await fetchDietPlan();
+        cacheClear('yelediet:dietPlan');
+        await fetchDietPlan({ force: true });
         console.log('✅ New weekly plan generated automatically');
       }
     } catch (error) {
@@ -88,12 +211,35 @@ export default function MealPlanPage() {
     }
   };
 
-  const fetchDietPlan = async () => {
+  const fetchDietPlan = async (opts?: { force?: boolean }) => {
     try {
+      if (!opts?.force) {
+        const cached = cacheGet<any>('yelediet:dietPlan');
+        if (cached) {
+          setDietPlan(cached);
+          setLoading(false);
+          // Soft refresh in background
+          fetch('/api/diet')
+            .then(async (res) => {
+              if (!res.ok) return;
+              const data = await res.json();
+              if (data.dietPlan) {
+                cacheSet('yelediet:dietPlan', data.dietPlan, 30 * 60 * 1000);
+                setDietPlan(data.dietPlan);
+              }
+            })
+            .catch(() => {});
+          return;
+        }
+      }
+
       const res = await fetch('/api/diet');
       if (res.ok) {
         const data = await res.json();
         setDietPlan(data.dietPlan);
+        if (data.dietPlan) {
+          cacheSet('yelediet:dietPlan', data.dietPlan, 30 * 60 * 1000);
+        }
       }
     } catch (error) {
       console.error('Error fetching diet plan:', error);
@@ -160,7 +306,7 @@ export default function MealPlanPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="min-h-screen flex items-center justify-center bg-mesh">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your meal plan...</p>
@@ -171,7 +317,7 @@ export default function MealPlanPage() {
 
   if (!dietPlan) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-mesh">
         <Card className="max-w-md">
           <CardContent className="p-8 text-center">
             <Utensils className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -189,7 +335,7 @@ export default function MealPlanPage() {
   const selectedDayInfo = days.find(d => d.key === selectedDay);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen md-page bg-mesh">
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -213,7 +359,7 @@ export default function MealPlanPage() {
                 Log Custom Meal
               </Button>
             <Link href="/dashboard">
-              <button className="px-4 py-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-full text-sm font-medium hover:shadow-lg transition-all">
+              <button className="px-4 py-2 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white rounded-full text-sm font-medium hover:shadow-lg transition-all">
                 Dashboard
               </button>
             </Link>
@@ -224,7 +370,7 @@ export default function MealPlanPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Week Overview Card */}
-        <Card className="mb-6 border-0 shadow-xl overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white">
+        <Card className="mb-6 border-0 shadow-xl overflow-hidden bg-gradient-to-r from-emerald-800 to-emerald-900 text-white">
           <CardContent className="p-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex-1">
@@ -265,10 +411,182 @@ export default function MealPlanPage() {
           </CardContent>
         </Card>
 
-        {/* Day Selector */}
+        {/* Grocery List — weekly vs monthly shopping */}
+        {dietPlan.groceryList && (
+          <Card className="mb-6 border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShoppingCart className="w-5 h-5 text-emerald-600" />
+                  Grocery list
+                </CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      shareGroceryWhatsApp(dietPlan.groceryList);
+                      toast.success('Opening WhatsApp…');
+                    }}
+                    className="px-3 py-2 rounded-full text-sm font-medium bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 flex items-center gap-1.5"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await downloadGroceryPdf(dietPlan.groceryList);
+                        toast.success('PDF downloaded');
+                      } catch (e) {
+                        console.error(e);
+                        toast.error('PDF failed');
+                      }
+                    }}
+                    className="px-3 py-2 rounded-full text-sm font-medium bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 flex items-center gap-1.5"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    PDF
+                  </button>
+                  <button
+                    onClick={() => setGroceryTab('weekly')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                      groceryTab === 'weekly'
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'bg-white text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    This week
+                  </button>
+                  <button
+                    onClick={() => setGroceryTab('monthly')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                      groceryTab === 'monthly'
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'bg-white text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    Monthly staples
+                  </button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Shop once from this list. Fresh produce, milk, eggs, paneer → <strong>This week</strong>.
+                Oats, peanut butter, dal, atta, rice, oil → <strong>Monthly staples</strong> (easy to miss if you only open the weekly tab).
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {/* Separate tables for weekly vs monthly via tabs */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[780px]">
+                  <thead>
+                    <tr className="bg-gray-50 text-left text-gray-600 border-b">
+                      <th className="px-3 py-3 font-semibold">Item</th>
+                      <th className="px-3 py-3 font-semibold">Brand</th>
+                      <th className="px-3 py-3 font-semibold whitespace-nowrap">Qty / item</th>
+                      <th className="px-3 py-3 font-semibold whitespace-nowrap">Pack size</th>
+                      <th className="px-3 py-3 font-semibold whitespace-nowrap">Pack qty</th>
+                      <th className="px-3 py-3 font-semibold">Price</th>
+                      <th className="px-3 py-3 font-semibold">Best buy from</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(groceryTab === 'weekly'
+                      ? dietPlan.groceryList.weekly
+                      : dietPlan.groceryList.monthly
+                    )?.map((row: any, idx: number) => (
+                      <tr
+                        key={`${row.name}-${idx}`}
+                        className="border-b border-gray-100 hover:bg-emerald-50/40"
+                      >
+                        <td className="px-3 py-3">
+                          <p className="font-medium text-gray-900">{row.name}</p>
+                          {row.nutritionInfo && (
+                            <p className="text-xs text-teal-700 mt-1 font-medium">{row.nutritionInfo}</p>
+                          )}
+                          {row.notes && (
+                            <p className="text-xs text-gray-500 mt-0.5">{row.notes}</p>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{row.brand}</td>
+                        <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{row.qtyPerItem || '—'}</td>
+                        <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{row.packSize || row.quantity}</td>
+                        <td className="px-3 py-3 font-semibold text-gray-900 whitespace-nowrap">{row.packQty ?? '—'}</td>
+                        <td className="px-3 py-3 font-semibold text-emerald-700 whitespace-nowrap">
+                          ₹{row.lineTotalInr}
+                        </td>
+                        <td className="px-3 py-3 text-gray-600">{row.bestBuyFrom}</td>
+                      </tr>
+                    ))}
+                    {(groceryTab === 'weekly'
+                      ? dietPlan.groceryList.weekly
+                      : dietPlan.groceryList.monthly
+                    )?.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                          Nothing in this list for your current plan.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-white/10 rounded-xl p-3">
+                    <p className="text-xs text-emerald-100">A · This week (fresh)</p>
+                    <p className="text-2xl font-bold">₹{dietPlan.groceryList.weeklyTotalInr}</p>
+                    <p className="text-[11px] text-emerald-100 mt-1">Sum of weekly tab rows</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3">
+                    <p className="text-xs text-emerald-100">B · Monthly staples (full pack)</p>
+                    <p className="text-2xl font-bold">₹{dietPlan.groceryList.monthlyTotalInr}</p>
+                    <p className="text-[11px] text-emerald-100 mt-1">What you pay once at the shop — NOT added in full to this week</p>
+                  </div>
+                  <div className="bg-white/15 rounded-xl p-3 ring-2 ring-white/40">
+                    <p className="text-xs text-emerald-50 font-semibold">C · Est. THIS week&apos;s food cost</p>
+                    <p className="text-2xl font-bold">₹{dietPlan.groceryList.estimatedWeekFoodSpendInr}</p>
+                    <p className="text-[11px] text-emerald-50 mt-1">
+                      {dietPlan.groceryList.spendBreakdown?.formula ||
+                        `A + (B ÷ 4) = C`}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-emerald-50 leading-relaxed bg-black/10 rounded-lg p-3">
+                  {dietPlan.groceryList.spendBreakdown?.plainEnglish ||
+                    `₹${dietPlan.groceryList.monthlyTotalInr} monthly is the full staple bill. Only ~¼ of that (₹${Math.round(
+                      (dietPlan.groceryList.monthlyTotalInr || 0) / 4
+                    )}) counts toward this week, plus weekly fresh ₹${dietPlan.groceryList.weeklyTotalInr}.`}
+                </p>
+              </div>
+              {dietPlan.groceryList.notes?.length > 0 && (
+                <ul className="px-4 py-3 text-xs text-gray-500 space-y-1 bg-gray-50 border-t">
+                  {dietPlan.groceryList.notes.map((n: string, i: number) => (
+                    <li key={i}>• {n}</li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Day Selector — horizontal scroll on mobile so Sat–Sun stay readable */}
         <Card className="mb-6 border-0 shadow-lg">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-7 gap-3">
+          <CardContent className="p-3 sm:p-6">
+            {selectedDay === todayKey && (
+              <div className="flex items-center justify-between mb-3 px-1">
+                <p className="text-sm text-gray-600">
+                  Tap <span className="font-semibold text-purple-700">Ate this</span> on today&apos;s meals to build your streak
+                </p>
+                {streak > 0 && (
+                  <Badge className="bg-orange-500 text-white gap-1">
+                    <Flame className="w-3.5 h-3.5" />
+                    {streak}-day streak
+                  </Badge>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin">
               {days.map((day) => {
                 const isToday = day.key === days[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1].key;
                 const isSelected = selectedDay === day.key;
@@ -277,28 +595,28 @@ export default function MealPlanPage() {
                   <button
                     key={day.key}
                     onClick={() => setSelectedDay(day.key)}
-                    className={`relative group transition-all duration-200 ${
-                      isSelected ? 'scale-105' : 'hover:scale-102'
+                    className={`relative flex-shrink-0 w-[4.5rem] sm:w-auto sm:flex-1 snap-start transition-all duration-200 ${
+                      isSelected ? 'scale-[1.03]' : ''
                     }`}
                   >
                     <div className={`
-                      px-4 py-5 rounded-xl border-2 transition-all text-center
+                      px-2 py-3 sm:px-4 sm:py-5 rounded-xl border-2 transition-all text-center
                       ${isSelected 
                         ? 'bg-gradient-to-br from-blue-500 to-purple-600 border-transparent text-white shadow-lg' 
                         : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md'
                       }
                     `}>
-                      <p className={`text-xs font-semibold mb-2 ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>
+                      <p className={`text-[10px] sm:text-xs font-semibold mb-1 sm:mb-2 ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>
                         {day.label}
                       </p>
-                      <p className={`text-base font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                      <p className={`text-sm sm:text-base font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                         {day.fullName.slice(0, 3)}
                       </p>
                       {isToday && (
-                        <div className="absolute top-2 right-2">
-                          <span className="flex h-2.5 w-2.5">
+                        <div className="absolute top-1.5 right-1.5">
+                          <span className="flex h-2 w-2 sm:h-2.5 sm:w-2.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-green-500"></span>
                           </span>
                         </div>
                       )}
@@ -324,7 +642,7 @@ export default function MealPlanPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border-2 border-blue-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-2 mb-3">
                   <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -357,52 +675,95 @@ export default function MealPlanPage() {
                 <p className="text-3xl font-bold text-red-900">{dayPlan?.dailyTotal?.fats}</p>
                 <p className="text-xs text-red-600 mt-1">grams</p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-5 border-2 border-purple-200 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-2 mb-3">
-                  <IndianRupee className="w-5 h-5 text-purple-600" />
-                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Cost</p>
-                </div>
-                <p className="text-3xl font-bold text-purple-900">₹{dayPlan?.dailyTotal?.cost}</p>
-                <p className="text-xs text-purple-600 mt-1">rupees</p>
-              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Meals Section */}
         <div className="space-y-4">
-          {dayPlan?.meals?.map((meal: any, mealIdx: number) => (
+          {dayPlan?.meals?.map((meal: any, mealIdx: number) => {
+            const mealNameLower = (meal.name || '').toLowerCase();
+            const isPreWorkout = /pre[- ]?workout/.test(mealNameLower);
+            const isPostWorkout = /post[- ]?workout/.test(mealNameLower);
+            return (
             <Card 
               key={mealIdx} 
-              className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+              className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden ${
+                isPreWorkout ? 'ring-2 ring-amber-400' : isPostWorkout ? 'ring-2 ring-emerald-400' : ''
+              }`}
             >
               <CardHeader 
                 className="cursor-pointer bg-gradient-to-r from-gray-50 to-white hover:from-blue-50 hover:to-purple-50 transition-colors"
                 onClick={() => setExpandedMeal(expandedMeal === mealIdx ? null : mealIdx)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-4 rounded-xl shadow-md">
-                      <Utensils className="w-6 h-6 text-white" />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className={`p-3 sm:p-4 rounded-xl shadow-md flex-shrink-0 ${
+                      isPreWorkout
+                        ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                        : isPostWorkout
+                          ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                          : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                    }`}>
+                      <Utensils className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <div>
-                      <CardTitle className="text-xl mb-1">{meal.name}</CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <CardTitle className="text-lg sm:text-xl">{meal.name}</CardTitle>
+                        {isPreWorkout && (
+                          <Badge className="bg-amber-500 text-white text-[10px] sm:text-xs">Pre-Workout</Badge>
+                        )}
+                        {isPostWorkout && (
+                          <Badge className="bg-emerald-600 text-white text-[10px] sm:text-xs">Post-Workout</Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-gray-600">
                         <span className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
                           {meal.time}
                         </span>
                         <span className="flex items-center gap-1">
-                          <IndianRupee className="w-4 h-4" />
-                          {meal.totalCost}
+                          <TrendingUp className="w-4 h-4" />
+                          {meal.totalCalories} cal
                         </span>
-                        <span className="text-gray-400">•</span>
+                        <span className="text-gray-400 hidden sm:inline">•</span>
                         <span>{meal.foods?.length} items</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary" className="text-base px-3 py-1">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
+                      disabled={swappingIdx === mealIdx}
+                      onClick={(e) => openSwap(mealIdx, e)}
+                    >
+                      {swappingIdx === mealIdx ? 'Cooking up…' : 'Shake it up'}
+                    </Button>
+                    {selectedDay === todayKey && (
+                      loggedMealNames.includes(meal.name) ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-300 text-emerald-700 bg-emerald-50 h-8 text-xs"
+                          onClick={(e) => undoMeal(meal.name, e)}
+                        >
+                          <Check className="w-3.5 h-3.5 mr-1" />
+                          Ate
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white h-8 text-xs"
+                          disabled={checkInBusy === meal.name}
+                          onClick={(e) => checkInMeal(meal, e)}
+                        >
+                          {checkInBusy === meal.name ? '…' : 'Ate this'}
+                        </Button>
+                      )
+                    )}
+                    <Badge variant="secondary" className="text-sm sm:text-base px-2 sm:px-3 py-1">
                       {meal.totalCalories} cal
                     </Badge>
                     <div className={`transition-transform duration-200 ${expandedMeal === mealIdx ? 'rotate-180' : ''}`}>
@@ -439,7 +800,7 @@ export default function MealPlanPage() {
                             </Badge>
                           </div>
 
-                          <div className="grid grid-cols-4 gap-3 mb-4">
+                          <div className="grid grid-cols-3 gap-3 mb-4">
                             <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
                               <p className="text-xs text-gray-600 mb-1">Protein</p>
                               <p className="font-bold text-blue-600">{food.protein}g</p>
@@ -452,10 +813,6 @@ export default function MealPlanPage() {
                               <p className="text-xs text-gray-600 mb-1">Fats</p>
                               <p className="font-bold text-orange-600">{food.fats}g</p>
                             </div>
-                            <div className="bg-purple-50 rounded-lg p-3 text-center border border-purple-100">
-                              <p className="text-xs text-gray-600 mb-1">Cost</p>
-                              <p className="font-bold text-purple-600">₹{food.estimatedCost}</p>
-                            </div>
                           </div>
 
                           {food.recipe && (
@@ -465,18 +822,30 @@ export default function MealPlanPage() {
                                 <span className="font-bold text-gray-900">How to Prepare</span>
                               </div>
                               <ul className="space-y-3">
-                                {food.recipe
-                                  .split(/(?:\.\s+|\n{2,})/)
-                                  .map((line: string) => line.replace(/\s+/g, ' ').trim())
-                                  .filter((line: string) => line.length > 3)
+                                {expandRecipeIfShort(food.item, food.recipe, food.quantity)
+                                  .split(/\n+/)
+                                  .map((line: string) => line.trim())
+                                  .filter((line: string) => line.length > 2)
+                                  .flatMap((line: string) => {
+                                    if (/^(ingredients|method|tips)/i.test(line)) return [line];
+                                    if (line.includes('. ') && !/^\d+\./.test(line) && line.length > 100) {
+                                      return line.split(/(?<=\.)\s+/).filter((s) => s.trim().length > 2);
+                                    }
+                                    return [line];
+                                  })
                                   .map((step: string, i: number) => {
-                                    const cleanStep = step.trim().replace(/^[\d\-\*•]+[\.\)\s]*/, '');
+                                    const isHeader = /^(ingredients|method|tips)/i.test(step);
+                                    const cleanStep = step.replace(/^[\d\-\*•]+[\.\)\s]*/, '');
                                     return (
-                                      <li key={i} className="flex gap-3 items-start">
-                                        <span className="flex-shrink-0 w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
-                                          {i + 1}
-                                        </span>
-                                        <p className="text-sm text-gray-700 leading-relaxed pt-1">{cleanStep}</p>
+                                      <li key={i} className={`flex gap-3 items-start ${isHeader ? 'mt-2' : ''}`}>
+                                        {!isHeader && (
+                                          <span className="flex-shrink-0 w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
+                                            {i + 1}
+                                          </span>
+                                        )}
+                                        <p className={`text-sm leading-relaxed pt-1 ${isHeader ? 'font-bold text-blue-900 w-full' : 'text-gray-700'}`}>
+                                          {isHeader ? step : cleanStep}
+                                        </p>
                                       </li>
                                     );
                                   })}
@@ -499,7 +868,7 @@ export default function MealPlanPage() {
 
                     <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-xl p-6 mt-6 border-2 border-indigo-200">
                       <h4 className="font-bold text-gray-900 mb-4 text-center text-lg">Meal Nutrition Summary</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         <div className="text-center">
                           <p className="text-xs text-gray-600 mb-2">Total Calories</p>
                           <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -514,36 +883,57 @@ export default function MealPlanPage() {
                           <p className="text-xs text-gray-600 mb-2">Carbs</p>
                           <p className="text-3xl font-bold text-green-600">{meal.totalCarbs}g</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-600 mb-2">Total Cost</p>
-                          <p className="text-3xl font-bold text-purple-600">₹{meal.totalCost}</p>
-                        </div>
                       </div>
+                      <p className="text-center text-xs text-gray-500 mt-3">
+                        Costs are in the grocery list above — not per meal.
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               )}
             </Card>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Weekly Cost Summary */}
-        <Card className="mt-8 border-0 shadow-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Sparkles className="w-6 h-6" />
-              Weekly Cost Estimate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <p className="text-5xl font-bold mb-2">
-                ₹{Object.values(dietPlan.weeklyPlan).reduce((sum: number, day: any) => sum + (day.dailyTotal?.cost || 0), 0)}
-              </p>
-              <p className="text-purple-100">Total for 7 days</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Weekly grocery spend pointer */}
+        {dietPlan.groceryList ? (
+          <Card className="mt-8 border-0 shadow-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <ShoppingCart className="w-6 h-6" />
+                Estimated week food spend
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-5xl font-bold mb-2">
+                  ₹{dietPlan.groceryList.estimatedWeekFoodSpendInr}
+                </p>
+                <p className="text-emerald-100">
+                  From grocery list (fresh this week + share of monthly staples)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mt-8 border-0 shadow-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Sparkles className="w-6 h-6" />
+                Weekly Cost Estimate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-5xl font-bold mb-2">
+                  ₹{Object.values(dietPlan.weeklyPlan).reduce((sum: number, day: any) => sum + (day.dailyTotal?.cost || 0), 0)}
+                </p>
+                <p className="text-purple-100">Total for 7 days</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       {/* Custom Meal Dialog */}
@@ -678,6 +1068,55 @@ export default function MealPlanPage() {
               >
                 <Check className="w-4 h-4 mr-2" />
                 Log Meal
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSwapDialog} onOpenChange={setShowSwapDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Shake it up
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-gray-600">
+              Bored of this plate? We’ll spin a fresh option at similar calories — grocery list updates with it.
+            </p>
+            <div>
+              <Label htmlFor="swapPref">What do you want instead?</Label>
+              <Input
+                id="swapPref"
+                value={swapPref}
+                onChange={(e) => setSwapPref(e.target.value)}
+                placeholder="e.g. more protein, cheaper, vegetarian pasta…"
+                className="mt-1.5"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['more variety', 'higher protein', 'cheaper', 'quick under 15 mins', 'more veggies'].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setSwapPref(p)}
+                  className="text-xs px-2.5 py-1 rounded-full border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowSwapDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600"
+                onClick={confirmSwap}
+              >
+                Surprise me
               </Button>
             </div>
           </div>

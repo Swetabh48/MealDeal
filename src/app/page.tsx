@@ -1,312 +1,171 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Heart, Users, Brain, TrendingUp, Shield,
-  Sparkles, Activity, Apple, MessageCircle, 
-  CheckCircle, Star, ArrowRight 
-} from 'lucide-react';
-import React from 'react';
-
+/**
+ * Landing page — soft-3D clay theme.
+ * Uses plain <a href> (not router.push) so Sign In / Register navigate instantly
+ * even while Next is still compiling the destination route.
+ */
 export default function Home() {
   const features = [
     {
-      icon: <Brain />,
-      title: 'AI-Powered Personalization',
-      desc: 'Advanced AI analyzes your profile, goals, and preferences to create perfect meal plans',
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-50'
+      title: 'AI meal plans',
+      desc: 'Weekly plates built around your goals, budget, and preferences.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-8 h-8 fill-emerald-800" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3L4 9V21H20V9L12 3ZM12 7.7C13.27 7.7 14.3 8.73 14.3 10C14.3 11.27 13.27 12.3 12 12.3C10.73 12.3 9.7 11.27 9.7 10C9.7 8.73 10.73 7.7 12 7.7ZM18 19H6V10.2L12 5.69L18 10.2V19Z" />
+        </svg>
+      ),
     },
     {
-      icon: <MessageCircle />,
-      title: '24/7 AI Doctor Chat',
-      desc: 'Get instant medical guidance and nutritional advice anytime you need it',
-      color: 'text-green-500',
-      bgColor: 'bg-green-50'
+      title: 'Smart grocery lists',
+      desc: 'Weekly fresh + monthly staples with brands, prices, WhatsApp share and PDF.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-8 h-8 fill-emerald-800" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13.13 22.19L11.5 18.36L10.17 21.54L8.16 21.47L9.48 18.28L8.19 15.19L10.19 15.18L11.4 18.05L13.1 14L15.03 14.06L13.13 22.19ZM18 10H14V7H18V10ZM10 10H6V7H10V10ZM10 15H6V12H10V15ZM18 15H14V12H18V15ZM20 2H4C2.9 2 2 2.9 2 4V20C2 21.1 2.9 22 4 22H7.2L7.6 20H4V4H20V20H16.4L16.8 22H20C21.1 22 22 21.1 22 20V4C22 2.9 21.1 2 20 2Z" />
+        </svg>
+      ),
     },
     {
-      icon: <Apple />,
-      title: 'Dynamic Meal Planning',
-      desc: 'Daily varying meals with local ingredients that fit your budget and taste',
-      color: 'text-rose-500',
-      bgColor: 'bg-rose-50'
+      title: 'Doctor chat + tracking',
+      desc: 'Ask nutrition questions, log water & sleep, and watch weekly progress.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-8 h-8 fill-emerald-800" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17,8C15.35,8 13.94,8.87 13.17,10.17C12.4,8.87 10.94,8 9.27,8C6.91,8 5,9.91 5,12.27C5,15.6 8.05,18.36 12,21.35C15.95,18.36 19,15.6 19,12.27C19,9.91 17.09,8 17,8Z" />
+        </svg>
+      ),
     },
-    {
-      icon: <Activity />,
-      title: 'Progress Tracking',
-      desc: 'Visual charts and insights to monitor your health journey and celebrate wins',
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-50'
-    },
-    {
-      icon: <Shield />,
-      title: 'Medical Report Analysis',
-      desc: 'Upload prescriptions and test results for personalized recommendations',
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-50'
-    },
-    {
-      icon: <Users />,
-      title: 'All-Age Friendly',
-      desc: 'Simple, intuitive interface designed for everyone from teens to seniors',
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-50'
-    }
-  ];
-
-  const steps = [
-    {
-      step: '01',
-      title: 'Share Your Story',
-      desc: 'Tell us about your health goals, challenges, and lifestyle in your own words',
-      icon: <MessageCircle />
-    },
-    {
-      step: '02',
-      title: 'Get Your Plan',
-      desc: 'AI creates a personalized nutrition plan with local, affordable ingredients',
-      icon: <Brain />
-    },
-    {
-      step: '03',
-      title: 'Track & Succeed',
-      desc: 'Follow daily meal plans, chat with AI doctor, and watch your progress',
-      icon: <TrendingUp />
-    }
-  ];
-
-  const testimonials = [
-    {
-      name: 'Rajesh Kumar',
-      age: '62 years',
-      result: 'Lost 12kg in 3 months',
-      quote: 'The personalized meal plans fit my budget and local food availability perfectly. The AI doctor helped me understand my diabetes better.',
-      rating: 5
-    },
-    {
-      name: 'Priya Sharma',
-      age: '45 years',
-      result: 'Improved cholesterol levels',
-      quote: 'Finally, a health app that understands Indian dietary needs! The daily meal variations keep it interesting.',
-      rating: 5
-    },
-    {
-      name:'Vivek Mishra',
-      age: '21 years',
-      result: 'Gained muscle mass',
-      quote: 'As a college student on a budget, MealDeal helped me eat healthy without overspending. The meal plans are easy to follow and delicious!',
-      rating: 5
-    }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <Heart className="w-8 h-8 text-rose-500" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-rose-500 bg-clip-text text-transparent">
-                MealDeal
-              </span>
+    <div className="min-h-screen bg-mesh overflow-x-hidden selection:bg-amber-400 selection:text-emerald-950 text-emerald-950">
+      <nav className="fixed top-0 w-full z-50 px-4 sm:px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center gap-3 bg-white/30 backdrop-blur-xl border border-white/40 rounded-full px-4 sm:px-6 py-3 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 bg-emerald-900 rounded-lg flex items-center justify-center shadow-inner shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-amber-400" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11 9H9V2H7V9H5V2H3V9C3 11.12 4.66 12.84 6.75 12.97V22H8.25V12.97C10.34 12.84 12 11.12 12 9V2H10V9H11ZM16 6V14H18.5V22H20.5V2H16C16 4.21 17.79 6 20 6V6H16Z" />
+              </svg>
             </div>
-            <div className="flex gap-3">
-              <Link href="/login">
-                <Button variant="ghost" className="text-gray-700 hover:text-blue-600">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="bg-gradient-to-r from-blue-600 to-rose-500 hover:from-blue-700 hover:to-rose-600 text-white shadow-lg">
-                  Get Started Free
-                </Button>
-              </Link>
-            </div>
+            <span className="font-display font-bold text-xl tracking-tight text-emerald-900 truncate">MealDeal</span>
+          </div>
+
+          <a
+            href="#features"
+            className="hidden md:inline text-sm font-medium text-emerald-800/80 hover:text-emerald-950 transition-colors"
+          >
+            Features
+          </a>
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <a
+              href="/login"
+              className="text-sm font-semibold text-emerald-900 px-3 sm:px-4 py-2 rounded-full hover:bg-emerald-900/5 transition-colors"
+            >
+              Sign In
+            </a>
+            <a
+              href="/register"
+              className="clay-btn bg-emerald-900 text-amber-400 px-4 sm:px-6 py-2.5 rounded-full text-sm font-bold shadow-lg hover:bg-emerald-800 inline-flex items-center"
+            >
+              Get Started
+            </a>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full mb-6 border border-blue-200">
-            <Sparkles className="w-4 h-4" />
-            <span className="text-sm font-medium">AI-Powered Personalized Nutrition</span>
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            Your Journey to
-            <span className="block bg-gradient-to-r from-blue-600 via-purple-500 to-rose-500 bg-clip-text text-transparent">
-              Better Health
+      <section className="relative min-h-screen flex flex-col items-center justify-center pt-24 px-6">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[15%] right-[10%] w-64 h-64 bg-amber-400/20 rounded-full blur-3xl animate-float-slow" />
+          <div className="absolute bottom-[10%] left-[5%] w-96 h-96 bg-emerald-900/10 rounded-full blur-[100px] animate-float" />
+          <div
+            className="absolute top-[25%] left-[15%] w-24 h-24 bg-white/40 backdrop-blur-md rounded-3xl shadow-2xl border border-white/60 rotate-12 animate-float hidden sm:block"
+            style={{ animationDelay: '1s' }}
+          />
+          <div
+            className="absolute bottom-[30%] right-[15%] w-32 h-32 bg-amber-100/30 backdrop-blur-md rounded-full shadow-2xl border border-white/60 animate-float-slow hidden sm:block"
+            style={{ animationDelay: '2s' }}
+          />
+        </div>
+
+        <div className="relative z-10 text-center max-w-4xl mx-auto animate-hero-reveal">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-900/5 border border-emerald-900/10 text-emerald-900 text-xs font-bold uppercase tracking-widest mb-8">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
             </span>
-            Starts Here
-          </h1>
-          
-          <p className="text-xl md:text-2xl text-gray-600 mb-10 leading-relaxed">
-            Get science-based, doctor-approved nutrition plans tailored to your unique needs, 
-            goals, and lifestyle. Available 24/7 with AI health guidance.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link href="/register">
-              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-rose-500 hover:from-blue-700 hover:to-rose-600 text-white px-8 py-6 text-lg shadow-xl hover:shadow-2xl transition-all">
-                Start Your Free Journey
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-            </Link>
-            <Link href="#features">
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2 hover:border-blue-600 hover:text-blue-600">
-                Learn More
-              </Button>
-            </Link>
+            Personalized nutrition, planned for you
           </div>
 
-          <div className="mt-12 flex flex-wrap justify-center gap-8 text-gray-600">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="font-medium">Science-Based Plans</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="font-medium">Locally Available Foods</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="font-medium">Budget-Friendly</span>
-            </div>
+          <h1 className="font-display text-6xl sm:text-7xl md:text-9xl font-black text-emerald-950 leading-[0.9] mb-6 tracking-tighter animate-breath">
+            MealDeal<span className="text-amber-500">.</span>
+          </h1>
+
+          <p className="font-display text-xl sm:text-2xl md:text-4xl text-emerald-900/90 leading-tight mb-4 max-w-2xl mx-auto font-medium italic">
+            Eat better. Live brighter.
+          </p>
+
+          <p className="text-base sm:text-lg md:text-xl text-emerald-800/70 mb-10 max-w-xl mx-auto leading-relaxed">
+            Meal plans, grocery lists, recipes, and health tracking — in one calm place.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="/register"
+              className="clay-btn group relative px-8 sm:px-10 py-4 sm:py-5 bg-amber-400 text-emerald-950 rounded-2xl font-bold text-lg inline-flex items-center gap-3 overflow-hidden shadow-[0_20px_50px_rgba(251,191,36,0.3)]"
+            >
+              <span className="relative z-10">Start free</span>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 relative z-10">
+                <path
+                  fillRule="evenodd"
+                  d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </a>
+
+            <a
+              href="#features"
+              className="px-8 py-4 sm:py-5 text-emerald-900 font-bold hover:bg-emerald-900/5 rounded-2xl transition-colors"
+            >
+              See features
+            </a>
           </div>
+        </div>
+
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-40 pointer-events-none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-emerald-900">
+            <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
+          </svg>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-4 bg-white">
+      <section id="features" className="py-24 sm:py-32 px-6 bg-white/20 backdrop-blur-sm relative z-10">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Everything You Need for
-              <span className="block text-blue-600">Complete Health Transformation</span>
+          <div className="text-center mb-14">
+            <h2 className="font-display text-3xl sm:text-5xl font-bold text-emerald-950 mb-3">
+              Built for real routines
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Powerful features designed to help you achieve your health goals with ease
+            <p className="text-emerald-800/70 max-w-xl mx-auto">
+              Plan, shop, cook, check in — without spreadsheet chaos.
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, idx) => (
-              <Card key={idx} className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                <CardContent className="p-8">
-                  <div className={`${feature.bgColor} w-16 h-16 rounded-2xl flex items-center justify-center mb-6`}>
-                    {React.cloneElement(feature.icon, { className: `w-10 h-10 ${feature.color}` })}
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3 text-gray-900">{feature.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{feature.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-20 px-4 bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
-            <p className="text-xl text-gray-600">Simple, fast, and effective</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {steps.map((item, idx) => (
-              <div key={idx} className="relative">
-                <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-                  <div className="text-6xl font-bold text-blue-100 mb-4">{item.step}</div>
-                  <div className="bg-gradient-to-br from-blue-500 to-purple-500 w-14 h-14 rounded-xl flex items-center justify-center mb-6 text-white">
-                    {React.cloneElement(item.icon, { className: 'w-8 h-8 text-white' })}
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3">{item.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+          <div className="grid md:grid-cols-3 gap-8 sm:gap-12">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="clay-card p-8 sm:p-10 group hover:-translate-y-2 transition-transform duration-500"
+              >
+                <div className="w-16 h-16 bg-emerald-900/5 rounded-2xl flex items-center justify-center mb-8 shadow-inner">
+                  {feature.icon}
                 </div>
-                {idx < 2 && (
-                  <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-8">
-                    <ArrowRight className="w-8 h-8 text-blue-300" />
-                  </div>
-                )}
+                <h3 className="font-display text-2xl font-bold text-emerald-950 mb-4">{feature.title}</h3>
+                <p className="text-emerald-800/60 leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Loved by Thousands</h2>
-            <p className="text-xl text-gray-600">Real results from real people</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, idx) => (
-              <Card key={idx} className="border-0 shadow-lg">
-                <CardContent className="p-8">
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <p className="text-gray-700 italic mb-6 leading-relaxed">&quot;{testimonial.quote}&quot;</p>
-                  <div className="border-t pt-4">
-                    <p className="font-bold text-gray-900">{testimonial.name}</p>
-                    <p className="text-sm text-gray-600">{testimonial.age}</p>
-                    <p className="text-sm font-semibold text-green-600 mt-2">{testimonial.result}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-r from-blue-600 via-purple-600 to-rose-600 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0ZXJuPjwvc3ZnPg==')] opacity-20"></div>
-        
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <h2 className="text-4xl md:text-6xl font-bold mb-6">
-            Ready to Transform Your Health?
-          </h2>
-          <p className="text-xl md:text-2xl mb-10 text-blue-100">
-            Join thousands who have already started their journey to a healthier, happier life
-          </p>
-          <Link href="/register">
-            <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 px-12 py-7 text-xl shadow-2xl hover:shadow-3xl transition-all hover:-translate-y-1">
-              Start Your Free Journey Today
-              <ArrowRight className="ml-2 w-6 h-6" />
-            </Button>
-          </Link>
-          <p className="mt-6 text-blue-100">No credit card required • Takes less than 2 minutes</p>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Heart className="w-8 h-8 text-rose-500" />
-              <span className="text-2xl font-bold">MealDeal</span>
-            </div>
-            <div className="flex gap-8 text-gray-400">
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
-            </div>
-          </div>
-          <div className="mt-8 text-center text-gray-400">
-            <p>© 2025 Salampuria. Built with ❤️ for better health</p>
-          </div>
-        </div>
+      <footer className="py-10 text-center text-sm text-emerald-800/50">
+        MealDeal · Personalized nutrition
       </footer>
     </div>
   );

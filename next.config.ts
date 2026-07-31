@@ -5,7 +5,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // ✅ ignore lint errors during build
+    ignoreDuringBuilds: true,
+  },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'www.themealdb.com' },
+    ],
   },
 };
 

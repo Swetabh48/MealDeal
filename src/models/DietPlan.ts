@@ -8,8 +8,10 @@ interface IFood {
   carbs: number;
   fats: number;
   estimatedCost: number;
+  brand?: string;
   recipe?: string;
   benefits?: string;
+  source?: string;
 }
 
 interface IMeal {
@@ -62,6 +64,20 @@ export interface IDietPlan extends Document {
   exerciseRecommendations?: string;
   progressTracking?: string;
   cautionaryNotes?: string;
+  generationMeta?: {
+    pipeline?: string;
+    sources?: {
+      gemini?: boolean;
+      rules?: boolean;
+      winner?: string;
+    };
+    geminiScore?: number;
+    rulesScore?: number;
+    finalScore?: number;
+    issuesFixed?: number;
+    recipeEnriched?: number;
+    generatedAt?: string;
+  };
   generatedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -75,8 +91,10 @@ const FoodSchema = new Schema({
   carbs: { type: Number, required: true },
   fats: { type: Number, required: true },
   estimatedCost: { type: Number, required: true },
+  brand: { type: String },
   recipe: { type: String },
   benefits: { type: String },
+  source: { type: String },
 }, { _id: false });
 
 const MealSchema = new Schema({
@@ -130,6 +148,21 @@ const DietPlanSchema: Schema = new Schema(
     exerciseRecommendations: { type: String },
     progressTracking: { type: String },
     cautionaryNotes: { type: String },
+    generationMeta: {
+      pipeline: { type: String },
+      sources: {
+        gemini: { type: Boolean },
+        rules: { type: Boolean },
+        winner: { type: String },
+      },
+      geminiScore: { type: Number },
+      rulesScore: { type: Number },
+      finalScore: { type: Number },
+      issuesFixed: { type: Number },
+      recipeEnriched: { type: Number },
+      generatedAt: { type: String },
+    },
+    groceryList: { type: Schema.Types.Mixed },
     generatedAt: { type: Date, default: Date.now },
   },
   {

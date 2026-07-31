@@ -1,9 +1,17 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Fraunces, Outfit } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 
-const inter = Inter({ subsets: ['latin'] });
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+});
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+});
 
 export const metadata: Metadata = {
   title: 'MealDeal - Your Personal Nutrition Guide',
@@ -16,8 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${outfit.variable} ${fraunces.variable} font-sans min-h-screen overflow-x-hidden bg-background text-foreground antialiased`}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

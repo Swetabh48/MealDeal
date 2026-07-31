@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,79 +92,75 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated Background */}
+    <div className="min-h-screen bg-mesh flex items-center justify-center p-4 relative overflow-hidden text-emerald-950">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-pink-400/20 rounded-full blur-3xl animate-pulse delay-500"></div>
+        <div className="absolute top-20 left-20 w-72 h-72 bg-amber-400/20 rounded-full blur-3xl animate-float-slow" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-emerald-900/10 rounded-full blur-3xl animate-float" />
       </div>
 
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-8 items-center relative z-10">
-        {/* Left Side - Benefits */}
         <div className="hidden md:block">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="bg-gradient-to-r from-blue-600 to-rose-500 p-4 rounded-2xl">
-              <Heart className="w-12 h-12 text-white" />
+            <div className="bg-emerald-900 p-4 rounded-2xl shadow-lg">
+              <Heart className="w-12 h-12 text-amber-400" />
             </div>
           </div>
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-rose-500 bg-clip-text text-transparent">
+          <h1 className="font-display text-5xl font-bold mb-4 text-emerald-950">
             Start Your Health Journey
           </h1>
-          <p className="text-xl text-gray-600 mb-8">
+          <p className="text-xl text-emerald-800/70 mb-8">
             Join thousands transforming their lives with personalized nutrition
           </p>
-          
+
           <div className="space-y-6">
             {[
               {
                 title: 'Free Forever',
-                desc: 'No credit card required. Start your health journey today.'
+                desc: 'No credit card required. Start your health journey today.',
               },
               {
                 title: 'AI-Powered Plans',
-                desc: 'Get science-based nutrition plans tailored to your goals.'
+                desc: 'Get science-based nutrition plans tailored to your goals.',
               },
               {
                 title: '24/7 Doctor Chat',
-                desc: 'Medical guidance available anytime you need it.'
+                desc: 'Medical guidance available anytime you need it.',
               },
               {
                 title: 'Track Progress',
-                desc: 'Visual insights and charts to celebrate your wins.'
-              }
+                desc: 'Visual insights and charts to celebrate your wins.',
+              },
             ].map((item, idx) => (
-              <div key={idx} className="flex items-start gap-4 bg-white/50 backdrop-blur-sm rounded-xl p-4">
-                <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
+              <div key={idx} className="flex items-start gap-4 clay-card p-4">
+                <CheckCircle className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
-                  <p className="text-sm text-gray-600">{item.desc}</p>
+                  <h3 className="font-semibold text-emerald-950 mb-1">{item.title}</h3>
+                  <p className="text-sm text-emerald-800/70">{item.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right Side - Registration Form */}
         <div>
-          <Link href="/">
-            <Button variant="ghost" className="mb-6 hover:bg-white/50">
+          <a href="/">
+            <Button variant="ghost" className="mb-6 hover:bg-white/50 text-emerald-900">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
             </Button>
-          </Link>
+          </a>
 
-          <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
+          <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm clay-card">
             <CardContent className="p-8 md:p-12">
               <div className="mb-8">
-                <h2 className="text-3xl font-bold mb-2 text-gray-900">Create Account</h2>
-                <p className="text-gray-600">Get started in less than 2 minutes</p>
+                <h2 className="font-display text-3xl font-bold mb-2 text-emerald-950">Create Account</h2>
+                <p className="text-emerald-800/70">Get started in less than 2 minutes</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <Label htmlFor="name" className="text-base font-medium flex items-center gap-2 mb-2">
-                    <User className="w-4 h-4 text-blue-600" />
+                    <User className="w-4 h-4 text-emerald-700" />
                     Full Name
                   </Label>
                   <Input
@@ -173,7 +168,7 @@ export default function RegisterPage() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="John Doe"
-                    className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    className="h-12 text-base border-emerald-900/15 focus:border-amber-400 focus:ring-amber-400"
                     required
                     disabled={loading}
                   />
@@ -181,7 +176,7 @@ export default function RegisterPage() {
 
                 <div>
                   <Label htmlFor="email" className="text-base font-medium flex items-center gap-2 mb-2">
-                    <Mail className="w-4 h-4 text-blue-600" />
+                    <Mail className="w-4 h-4 text-emerald-700" />
                     Email Address
                   </Label>
                   <Input
@@ -190,7 +185,7 @@ export default function RegisterPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="your@email.com"
-                    className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    className="h-12 text-base border-emerald-900/15 focus:border-amber-400 focus:ring-amber-400"
                     required
                     disabled={loading}
                   />
@@ -198,7 +193,7 @@ export default function RegisterPage() {
 
                 <div>
                   <Label htmlFor="password" className="text-base font-medium flex items-center gap-2 mb-2">
-                    <Lock className="w-4 h-4 text-blue-600" />
+                    <Lock className="w-4 h-4 text-emerald-700" />
                     Password
                   </Label>
                   <div className="relative">
@@ -208,7 +203,7 @@ export default function RegisterPage() {
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="••••••••"
-                      className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500 pr-12"
+                      className="h-12 text-base border-emerald-900/15 focus:border-amber-400 focus:ring-amber-400 pr-12"
                       required
                       disabled={loading}
                     />
@@ -220,7 +215,7 @@ export default function RegisterPage() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  
+
                   {formData.password && (
                     <div className="mt-2">
                       <div className="flex gap-1 mb-1">
@@ -234,8 +229,9 @@ export default function RegisterPage() {
                         ))}
                       </div>
                       {strength > 0 && (
-                        <p className="text-xs text-gray-600">
-                          Password strength: <span className="font-medium">{strengthLabels[strength - 1]}</span>
+                        <p className="text-xs text-emerald-800/70">
+                          Password strength:{' '}
+                          <span className="font-medium">{strengthLabels[strength - 1]}</span>
                         </p>
                       )}
                     </div>
@@ -244,7 +240,7 @@ export default function RegisterPage() {
 
                 <div>
                   <Label htmlFor="confirmPassword" className="text-base font-medium flex items-center gap-2 mb-2">
-                    <Lock className="w-4 h-4 text-blue-600" />
+                    <Lock className="w-4 h-4 text-emerald-700" />
                     Confirm Password
                   </Label>
                   <div className="relative">
@@ -254,7 +250,7 @@ export default function RegisterPage() {
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                       placeholder="••••••••"
-                      className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500 pr-12"
+                      className="h-12 text-base border-emerald-900/15 focus:border-amber-400 focus:ring-amber-400 pr-12"
                       required
                       disabled={loading}
                     />
@@ -273,12 +269,12 @@ export default function RegisterPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base bg-gradient-to-r from-blue-600 to-rose-500 hover:from-blue-700 hover:to-rose-600 text-white shadow-lg hover:shadow-xl transition-all"
+                  className="w-full h-12 text-base bg-amber-400 hover:bg-amber-500 text-emerald-950 font-bold shadow-lg hover:shadow-xl transition-all"
                   disabled={loading}
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-2 border-emerald-900/30 border-t-emerald-900 rounded-full animate-spin"></div>
                       Creating Account...
                     </div>
                   ) : (
@@ -288,20 +284,17 @@ export default function RegisterPage() {
               </form>
 
               <div className="mt-8 text-center">
-                <p className="text-gray-600">
+                <p className="text-emerald-800/70">
                   Already have an account?{' '}
-                  <Link href="/login" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">
+                  <a href="/login" className="text-emerald-900 font-semibold hover:text-amber-600 transition-colors">
                     Sign in
-                  </Link>
+                  </a>
                 </p>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <p className="text-xs text-center text-gray-500">
-                  By creating an account, you agree to our{' '}
-                  <a href="#" className="text-blue-600 hover:underline">Terms of Service</a>
-                  {' '}and{' '}
-                  <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
+              <div className="mt-8 pt-6 border-t border-emerald-900/10">
+                <p className="text-xs text-center text-emerald-800/50">
+                  By creating an account, you agree to our Terms of Service and Privacy Policy
                 </p>
               </div>
             </CardContent>
